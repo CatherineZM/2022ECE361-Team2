@@ -5,32 +5,53 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <netdb.h>
 
-int main(int argc, char *argv[]){
-	//printf("Hello world");
-	// int sockfd;
-	// struct addrinfo hints, *servinfo, *p;
-	// int rv;
-	// int numbytes;
+#define MAXBUFLEN 100
 
-	// if (argc != 3) {
-	// 	fprintf(stderr,"server: Invalid input number\n");
-	// 	exit(1);
-	// }
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-   	// memset(&hints, 0, sizeof hints);
-    // 	hints.ai_family = AF_INET6; // set to AF_INET to use IPv4
-    // 	hints.ai_socktype = SOCK_DGRAM;
-    // 	hints.ai_flags = AI_PASSIVE; // use my IP
+int main(int argc, char *argv[])
+{
+	// check if input is valid
+	if (argc != 3) {
+		fprintf(stderr,"deliver: Invalid input number, expect 3 but input %d\n", argc);
+		exit(1);
+	}
+
+	// get port number from input
+	char * portInput = argv[2];
+	int portNum = atoi(portInput);
+
+	int sockfd;
+	struct addrinfo hints, *servinfo;
+	int rv;
+
+   	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_INET; // set to AF_INET to use IPv4
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE; // use my IP
 	
-	// if((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0)
-	// {
-	// 	fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-    //     	return 1;
-	// }
+	rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo);
+	if(rv != 0)
+	{
+		fprintf(stderr, "deliver: getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+	}
+
+	// open the socket
+	sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, 0);
+	if(sockfd == -1)
+	{
+		fprintf(stderr, "deliver: error when opening the socket");
+		return 1; 
+	}
+
+	char inputMes[MAXBUFLEN];
+	printf("Enter your input message: ");
+	fgets(inputMes, MAXBUFLEN, stdin);
+	printf("Your input message is %s\n", inputMes);
 
 	// // loop through all the results and make a socket
     // 	for(p = servinfo; p != NULL; p = p->ai_next) {

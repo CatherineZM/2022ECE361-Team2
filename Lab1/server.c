@@ -7,14 +7,16 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#define MAXBUFLEN 100
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 int main(int argc, char *argv[])
 {
-	// Check if the input is valid
+	// check if the input is valid
 	if (argc != 2) {
-		fprintf(stderr,"server: Invalid input number\n");
+		fprintf(stderr,"server: Invalid input number, expect 2 but input %d\n", argc);
 		exit(1);
 	}
 	
@@ -26,8 +28,10 @@ int main(int argc, char *argv[])
 	struct addrinfo hints, *res;
 	int rv;
 
-	// struct sockaddr_storage client_addr;
-	// socklen_t addr_len;
+	int numbytes;
+	struct sockaddr_storage client_addr;
+	char buf[MAXBUFLEN];
+	socklen_t addr_len;
 
 	// load up address structs modified from Beej's Guide
 	memset(&hints, 0, sizeof hints);
@@ -59,36 +63,17 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	printf("Finished make and bind a socket \n");
+	printf("Finished make and bind a socket. Start Listening. \n");
 
-	
-	// int numbytes;
-	// struct sockaddr_storage their_addr;
-    // 	char buf[MAXBUFLEN];
-    // 	socklen_t addr_len;
-    // 	char s[INET6_ADDRSTRLEN];
+	addr_len = sizeof client_addr; 
+	numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,(struct sockaddr *)&client_addr, &addr_len);
 
-	// if((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0)
-	// {
-	// 	fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-    //     	return 1;
-	// }
+	if (numbytes == -1) {
+		fprintf(stderr, "server: message received is invalid\n");
+		return 1;
+    }
 
-	// // loop through all the results and make a socket
-    // 	for(p = servinfo; p != NULL; p = p->ai_next) {
-    //     	if ((sockfd = socket(p->ai_family, p->ai_socktype,
-    //             	p->ai_protocol)) == -1) {
-    //         		perror("talker: socket");
-    //         		continue;
-    //     	}
-
-    //     	break;
-    // 	}
-
-	// if (p == NULL) {
-    //     	fprintf(stderr, "talker: failed to create socket\n");
-    //     	return 2;
-    // 	}
+	printf("Message received from client: %s\n", buf);
 
     // 	if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
     //          	p->ai_addr, p->ai_addrlen)) == -1) {
