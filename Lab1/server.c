@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	int portNum = atoi(portInput);
 
 	int sockfd;
-	struct addrinfo hints, *servinfo, *p;
+	struct addrinfo hints, *servinfo;
 	int rv;
 
 	// load up address structs modified from Beej's Guide
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 	client_addr_len = sizeof client_addr;
 
 	numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,(struct sockaddr *)&client_addr, &client_addr_len);
-
+	printf("server: message received from client: %s\n", buf);
 	if (numbytes < 0) {
 		fprintf(stderr, "server: message received is invalid\n");
 		return 1;

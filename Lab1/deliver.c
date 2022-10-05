@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	while(1) {
 		printf("Enter your input message in format ftp <file name>: \n");
 		fgets(message, MAXBUFLEN, stdin);
-		printf("Your input message is %s", message);
+		printf("deliver: your input message is %s", message);
 		if(read_client_input(message, MAXBUFLEN))
 			return 0;
 		if(!read_client_input(message, MAXBUFLEN))
