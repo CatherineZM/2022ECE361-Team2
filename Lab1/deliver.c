@@ -16,7 +16,7 @@ int read_client_input();
 int main(int argc, char *argv[])
 {
 	// check if input is valid
-	if (argc != 3) {
+	if(argc != 3) {
 		fprintf(stderr,"deliver: Invalid input number, expect 3 but input %d\n", argc);
 		exit(1);
 	}
@@ -25,17 +25,18 @@ int main(int argc, char *argv[])
 	char * portInput = argv[2];
 	int portNum = atoi(portInput);
 
+	// initialize socket information
 	int sockfd;
 	struct addrinfo hints, *servinfo;
 	int rv;
 
+	// From Beej's Guide, create and bing socket
    	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET; // set to AF_INET to use IPv4
 	hints.ai_socktype = SOCK_DGRAM;
-	
+
 	rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo);
-	if(rv != 0)
-	{
+	if(rv != 0) {
 		fprintf(stderr, "deliver: getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
 	}
@@ -48,11 +49,13 @@ int main(int argc, char *argv[])
 		return 1; 
 	}
 
-	if (servinfo == NULL) {
-        fprintf(stderr, "deliver: failed to bind socket\n");
-        return 1;
+	// Check if binding succeed
+	if(servinfo == NULL) {
+		fprintf(stderr, "deliver: failed to bind socket\n");
+		return 1;
     }
 
+	// initialize server's socket address information
 	int numbytes;
 	struct sockaddr_storage server_addr;
 	char message[MAXBUFLEN];
@@ -60,6 +63,7 @@ int main(int argc, char *argv[])
 
 	server_addr_len = sizeof server_addr;
 	
+	// promte message for a user to enter command and save input message
 	while(1) {
 		printf("Enter your input message in format ftp <file name>: \n");
 		fgets(message, MAXBUFLEN, stdin);
@@ -74,8 +78,7 @@ int main(int argc, char *argv[])
 	char * handshake = "ftp"; 
 	int sendMsg;
 	sendMsg = sendto(sockfd, handshake, strlen(handshake), 0, servinfo->ai_addr, servinfo->ai_addrlen);
-	if(sendMsg < 0)
-	{
+	if(sendMsg < 0) {
 		fprintf(stderr, "deliver: error when sending message%n\n", sendMsg);
 		return 1; 
 	}
@@ -83,19 +86,18 @@ int main(int argc, char *argv[])
 	freeaddrinfo(servinfo);
 
 	char reply[MAXBUFLEN];
-
     numbytes = recvfrom(sockfd, reply, MAXBUFLEN-1, 0,(struct sockaddr *)&server_addr, &server_addr_len);
 
-	if (numbytes < 0)
-	{
+	// check if received server's reply
+	if(numbytes < 0) {
 		fprintf(stderr, "deliver: message received is invalid\n");
 		return 1;
     }
 
-    if(strcmp(reply, "yes") == 0)
-	{
-        fprintf(stdout, "A file transfer can start\n");
-    }
+	// if server's reply is "yes", tell user file transfer can start
+	if(strcmp(reply, "yes") == 0) {
+		fprintf(stdout, "A file transfer can start\n");
+	}
 
     close(sockfd);
 
@@ -103,11 +105,14 @@ int main(int argc, char *argv[])
 }
 
 int read_client_input(char* input, int input_length) {
-	int word_count = 0; int start = 0; int space = 0;
-	char input_command[MAXBUFLEN]; char input_file[MAXBUFLEN];
+	int word_count = 0; 
+	int start = 0; 
+	int space = 0;
+	char input_command[MAXBUFLEN]; 
+	char input_file[MAXBUFLEN];
 	char ftp_command[] = "ftp";
 
-	//breakdown input strings into input_command and input_file and error check on arguments
+	// breakdown input strings into input_command and input_file and error check on arguments
 	for(int i=0; (i<input_length) && (input[i]!='\0'); i++) {
 		if(((isspace(input[i]) != 0) || (i+1 == input_length)) && (space != 1)) {
 			space = 1;
@@ -137,6 +142,8 @@ int read_client_input(char* input, int input_length) {
 			space = 0;
 		}
 	}
+	
+	// verify input aruguments
 	if(word_count < 2) {
 		printf("Error: too few arguments\n");
 		return -1;
@@ -147,15 +154,16 @@ int read_client_input(char* input, int input_length) {
 		printf("Error: undefined command: %s\n", input_command);
 		return -1;
 	}
+
 	char cwd[MAXBUFLEN];
 	char forward[] = "/";
-	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+	if(getcwd(cwd, sizeof(cwd)) != NULL) {
 		strcat(strcat(cwd,forward),input_file);
-		// printf("Current working dir: %s\n", cwd);
 	} else {
 		printf("Error: getcwd() failed\n");
 		return -1;
 	}
+
 	char* pcwd = cwd;
 	if(access(pcwd, F_OK) != 0) {
 		printf("Error: file <%s> is not exist, program ends\n", input_file);
@@ -166,31 +174,3 @@ int read_client_input(char* input, int input_length) {
 	return 0;
 }
 
-
-//catherine's comments
-	// // loop through all the results and make a socket
-    // 	for(p = servinfo; p != NULL; p = p->ai_next) {
-    //     	if ((sockfd = socket(p->ai_family, p->ai_socktype,
-    //             	p->ai_protocol)) == -1) {
-    //         		perror("talker: socket");
-    //         		continue;
-    //     	}
-
-    //     	break;
-    // 	}
-
-	// if (p == NULL) {
-    //     	fprintf(stderr, "talker: failed to create socket\n");
-    //     	return 2;
-    // 	}
-
-    // 	if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
-    //          	p->ai_addr, p->ai_addrlen)) == -1) {
-    //     	perror("talker: sendto");
-    //     	exit(1);
-    // 	}
-
-    // 	freeaddrinfo(servinfo);
-
-    // 	printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
-    // 	close(sockfd);
