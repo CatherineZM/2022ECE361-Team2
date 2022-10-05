@@ -10,9 +10,6 @@
 
 #define MAXBUFLEN 100
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 //define functions
 int read_client_input();
 
@@ -35,7 +32,6 @@ int main(int argc, char *argv[])
    	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET; // set to AF_INET to use IPv4
 	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE; // use my IP
 	
 	rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo);
 	if(rv != 0)
@@ -51,24 +47,57 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "deliver: error when opening the socket");
 		return 1; 
 	}
+
+	if (servinfo == NULL) {
+        fprintf(stderr, "deliver: failed to bind socket\n");
+        return 1;
+    }
+
+	int numbytes;
+	struct sockaddr_storage server_addr;
+	char message[MAXBUFLEN];
+	socklen_t server_addr_len;
+
+	server_addr_len = sizeof server_addr;
+	
 	while(1) {
-		char inputMes[MAXBUFLEN];
 		printf("Enter your input message in format ftp <file name>: \n");
-		fgets(inputMes, MAXBUFLEN, stdin);
-		// printf("Your input message is %s", inputMes);
-		if(read_client_input(inputMes, MAXBUFLEN))
+		fgets(message, MAXBUFLEN, stdin);
+		printf("Your input message is %s", message);
+		if(read_client_input(message, MAXBUFLEN))
 			return 0;
-		if(!read_client_input(inputMes, MAXBUFLEN))
+		if(!read_client_input(message, MAXBUFLEN))
 			break;
 	}
-	//=======================send ftp fails here, sendto() function failed================
-	//client send "ftp" to server
-	/*
-	char *handshake = "ftp"; char buffer[MAXBUFLEN]; 
-	int no = sendto(sockfd, (const char *)handshake, strlen(handshake), 
-	MSG_CONFIRM, (const struct sockaddr *) &hints, sizeof(hints)); 
-	printf("no = %d\n", no);
-	*/
+	
+	// client send "ftp" to server
+	char * handshake = "ftp"; 
+	int sendMsg;
+	sendMsg = sendto(sockfd, handshake, strlen(handshake), 0, servinfo->ai_addr, servinfo->ai_addrlen);
+	if(sendMsg < 0)
+	{
+		fprintf(stderr, "deliver: error when sending message%n\n", sendMsg);
+		return 1; 
+	}
+
+	freeaddrinfo(servinfo);
+
+	char reply[MAXBUFLEN];
+
+    numbytes = recvfrom(sockfd, reply, MAXBUFLEN-1, 0,(struct sockaddr *)&server_addr, &server_addr_len);
+
+	if (numbytes < 0)
+	{
+		fprintf(stderr, "deliver: message received is invalid\n");
+		return 1;
+    }
+
+    if(strcmp(reply, "yes") == 0)
+	{
+        fprintf(stdout, "A file transfer can start\n");
+    }
+
+    close(sockfd);
 
 	return 0;
 }

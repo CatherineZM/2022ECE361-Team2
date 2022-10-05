@@ -9,9 +9,6 @@
 
 #define MAXBUFLEN 100
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 int main(int argc, char *argv[])
 {
 	// check if the input is valid
@@ -25,23 +22,16 @@ int main(int argc, char *argv[])
 	int portNum = atoi(portInput);
 
 	int sockfd;
-	struct addrinfo hints, *res;
+	struct addrinfo hints, *servinfo, *p;
 	int rv;
-
-	int numbytes;
-	struct sockaddr_storage client_addr;
-	char buf[MAXBUFLEN];
-	socklen_t addr_len;
 
 	// load up address structs modified from Beej's Guide
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET; // set to AF_INET to use IPv4
 	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE; // use my IP
-	// hints.ai_port = htons(portNum);
-	// hints.
+	hints.ai_flags = AI_PASSIVE;
 
-	rv = getaddrinfo(NULL, portInput, &hints, &res);
+	rv = getaddrinfo(NULL, portInput, &hints, &servinfo);
 	if(rv != 0)
 	{
 		fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(rv));
@@ -49,42 +39,62 @@ int main(int argc, char *argv[])
 	}
 
 	// make a socket:
-	sockfd = socket(res->ai_family, res->ai_socktype, 0);
-	if(sockfd == -1)
+	sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+	if(sockfd < 0)
 	{
 		fprintf(stderr, "server: error when making the socket");
 		return 1; 
 	}
 
 	// bind it to the port we passed in to getaddrinfo():
-	if(bind(sockfd, res->ai_addr, res->ai_addrlen) == -1)
+	if(bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) == -1)
 	{
+		close(sockfd);
 		fprintf(stderr, "server: failed to bind socket\n");
 		return 1;
 	}
 
-	printf("Finished make and bind a socket. Start Listening. \n");
+	if (servinfo == NULL) {
+        fprintf(stderr, "server: failed to bind socket\n");
+        return 1;
+    }
 
-	addr_len = sizeof client_addr; 
-	numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,(struct sockaddr *)&client_addr, &addr_len);
+	freeaddrinfo(servinfo);
 
-	if (numbytes == -1) {
+	printf("Finished make and bind a socket. Start Listening to port %s \n", portInput);
+
+	int numbytes;
+	struct sockaddr_in client_addr;
+	char buf[MAXBUFLEN];
+	socklen_t client_addr_len;
+
+	client_addr_len = sizeof client_addr;
+
+	numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,(struct sockaddr *)&client_addr, &client_addr_len);
+
+	if (numbytes < 0) {
 		fprintf(stderr, "server: message received is invalid\n");
 		return 1;
     }
 
-	printf("Message received from client: %s\n", buf);
+	int cmd_check = strcmp(buf, "ftp");
+	int sendMsg;
 
-    // 	if ((numbytes = sendto(sockfd, argv[2], strlen(argv[2]), 0,
-    //          	p->ai_addr, p->ai_addrlen)) == -1) {
-    //     	perror("talker: sendto");
-    //     	exit(1);
-    // 	}
+	if (cmd_check == 0) {
+		sendMsg = sendto(sockfd, "yes", strlen("yes"), 0, (struct sockaddr *) &client_addr, client_addr_len);
+        if (sendMsg == -1) {
+            fprintf(stderr, "server: error when sending message%d \n", sendMsg);
+            exit(1);
+        }
+    } else {
+		sendMsg = sendto(sockfd, "no", strlen("no"), 0, (struct sockaddr *) &client_addr, client_addr_len);
+        if (sendMsg == -1) {
+            fprintf(stderr, "server: error when sending message%d \n", sendMsg);
+            exit(1);
+        }
+    }
 
-    // 	freeaddrinfo(servinfo);
-
-    // 	printf("talker: sent %d bytes to %s\n", numbytes, argv[1]);
-    // 	close(sockfd);
+    close(sockfd);
 
 	return 0;
 }
