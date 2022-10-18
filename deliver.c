@@ -21,10 +21,13 @@ void send_check();
 
 int main(int argc, char *argv[])
 {
-	//define varibales
-	clock_t start_t, end_t; double RTT;
-	int total_frag = 0; int frag_no = 0;
-	char file_name[MAXBUFLEN]; char file_str[MAXFILESTRLEN]; 
+	// define varibales
+	clock_t start_t, end_t;
+	double RTT;
+	int total_frag = 0;
+	int frag_no = 0;
+	char file_name[MAXBUFLEN];
+	char file_str[MAXFILESTRLEN];
 	
 	
 	// check if input is valid
@@ -112,6 +115,7 @@ int main(int argc, char *argv[])
 		fprintf(stdout, "Refused by server, unable to start file transfer\n");
 	}
 	end_t = clock(); //RTT ends
+
 	RTT = (double)(end_t - start_t) / CLOCKS_PER_SEC;
   	printf("The round-trip time (RTT) = %.3f ms\n", RTT*1000);
 
@@ -234,7 +238,7 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	char open_file[MAXBUFLEN];
 	FILE* text_file = NULL;
 	char text[MAXFILELEN+1]; //'\0' at last
-    int len; int len_end;
+    int len, len_end;
 	char str_buf[MAXBUFLEN];
 	strcpy(open_file, file_name);
 	text_file = fopen(open_file, "r");

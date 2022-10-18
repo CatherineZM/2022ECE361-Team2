@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <ctype.h>
 #include <stddef.h>
+#include "packet.h"
 
 #define MAXBUFLEN 100
 #define MAXFILELEN 9
@@ -15,6 +16,8 @@
 
 //call funtion
 int create_file();
+// Process the packet content
+void process_packet(char* buffer, struct packet* p);
 
 int main(int argc, char *argv[])
 {
@@ -132,12 +135,17 @@ int main(int argc, char *argv[])
 
 int create_file(char received_str[MAXFILESTRLEN]) {
 	char *p = &received_str[0];
-	char *p_cpy = p; char *p_move = p;
-	long num = 0; int num_index = 0;
+	char *p_cpy = p; 
+	char *p_move = p;
+	long num = 0; 
+	int num_index = 0;
 	ptrdiff_t bytes_index = 0;
 	ptrdiff_t bytes_len = 0;
-	int total_frag = 0; int frag_no = 0; int size = 0;
-	char file_name[MAXBUFLEN]; char file_txt[MAXFILELEN+1]; //for '\0'
+	int total_frag = 0; 
+	int frag_no = 0; 
+	int size = 0;
+	char file_name[MAXBUFLEN]; 
+	char file_txt[MAXFILELEN+1]; //for '\0'
 
 	//handle msg to abstract struct info from received file str
 	while(*p_move) {
@@ -187,4 +195,52 @@ int create_file(char received_str[MAXFILESTRLEN]) {
 		return 1;
 	else
 		return 0;
+}
+
+void process_packet(char* buffer, struct packet* p)
+{
+	char* p_total_frag, p_frag_no, p_size, p_filename, p_content;
+	int frag_no_index = 0;
+	int size_index = 0;
+	int filename_index = 0;
+	int content_index = 0;
+
+	int colons[4];
+	int colon_index = 0;
+	for(int i = 0; i < MAXBUFLEN; i++ )
+	{
+		if(buffer[i] == ":"){
+			colons[colon_index] = i;
+			colon_index++;
+		}
+	}
+	
+	for(int i = 0; i < MAXBUFLEN; i++)
+	{
+		if( i < colons[0] ) {
+			p_total_frag[i] = buffer[i]; 
+		} else if( colons[0] < i < colons[1] ) {
+			p_frag_no[frag_no_index] = buffer[i];
+			frag_no_index++;
+		} else if( colons[1] < i < colons[2] ) {
+			p_size[size_index] = buffer[i];
+			size_index++;
+		} else if( colons[2] < i < colons[3] ) {
+			p_filename[filename_index] = buffer[i];
+			filename_index++;
+		}
+		
+		if( colons[3] < i < atoi(p_size) ) {
+			p_content[content_index] = buffer[i];
+			content_index++;
+		}
+	}
+
+	p->total_frag = atoi(p_total_frag);
+	p->frag_no = atoi(p_frag_no);
+	p->size = atoi(p_size);
+	p->filename = p_filename;
+	p->filedata = p_content;
+
+	printf("Parsed file data is \n %s \n", p->filedata);
 }
