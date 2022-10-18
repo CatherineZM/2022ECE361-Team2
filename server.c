@@ -14,10 +14,11 @@
 #define MAXFILELEN 9
 #define MAXFILESTRLEN MAXFILELEN+MAXBUFLEN
 
-//call funtion
+//define funtion
 int create_file();
 // Process the packet content
-void process_packet(char* buffer, struct packet* p);
+// void process_packet(char* buffer, struct packet* p);
+void send_check();
 
 int main(int argc, char *argv[])
 {
@@ -121,8 +122,13 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "server: file received is invalid\n");
 				return 1;
 			}
-			if(create_file(&received_str))
-				file_created = 0;
+			else {
+				if(create_file(&received_str))
+					file_created = 0;
+				//packet string received, send ACK to client
+				sendMsg = sendto(sockfd, "ACK", strlen("ACK")+1, 0, (struct sockaddr *) &client_addr, client_addr_len);
+				send_check(sendMsg);
+			}
 		}
 		
 		printf("File is created\n\nListening to port again...\n");
@@ -197,50 +203,56 @@ int create_file(char received_str[MAXFILESTRLEN]) {
 		return 0;
 }
 
-void process_packet(char* buffer, struct packet* p)
-{
-	char* p_total_frag, p_frag_no, p_size, p_filename, p_content;
-	int frag_no_index = 0;
-	int size_index = 0;
-	int filename_index = 0;
-	int content_index = 0;
+// void process_packet(char* buffer, struct packet* p)
+// {
+// 	char* p_total_frag, p_frag_no, p_size, p_filename, p_content;
+// 	int frag_no_index = 0;
+// 	int size_index = 0;
+// 	int filename_index = 0;
+// 	int content_index = 0;
 
-	int colons[4];
-	int colon_index = 0;
-	for(int i = 0; i < MAXBUFLEN; i++ )
-	{
-		if(buffer[i] == ":"){
-			colons[colon_index] = i;
-			colon_index++;
-		}
-	}
+// 	int colons[4];
+// 	int colon_index = 0;
+// 	for(int i = 0; i < MAXBUFLEN; i++ )
+// 	{
+// 		if(buffer[i] == ":"){
+// 			colons[colon_index] = i;
+// 			colon_index++;
+// 		}
+// 	}
 	
-	for(int i = 0; i < MAXBUFLEN; i++)
-	{
-		if( i < colons[0] ) {
-			p_total_frag[i] = buffer[i]; 
-		} else if( colons[0] < i < colons[1] ) {
-			p_frag_no[frag_no_index] = buffer[i];
-			frag_no_index++;
-		} else if( colons[1] < i < colons[2] ) {
-			p_size[size_index] = buffer[i];
-			size_index++;
-		} else if( colons[2] < i < colons[3] ) {
-			p_filename[filename_index] = buffer[i];
-			filename_index++;
-		}
+// 	for(int i = 0; i < MAXBUFLEN; i++)
+// 	{
+// 		if( i < colons[0] ) {
+// 			p_total_frag[i] = buffer[i]; 
+// 		} else if( colons[0] < i < colons[1] ) {
+// 			p_frag_no[frag_no_index] = buffer[i];
+// 			frag_no_index++;
+// 		} else if( colons[1] < i < colons[2] ) {
+// 			p_size[size_index] = buffer[i];
+// 			size_index++;
+// 		} else if( colons[2] < i < colons[3] ) {
+// 			p_filename[filename_index] = buffer[i];
+// 			filename_index++;
+// 		}
 		
-		if( colons[3] < i < atoi(p_size) ) {
-			p_content[content_index] = buffer[i];
-			content_index++;
-		}
+// 		if( colons[3] < i < atoi(p_size) ) {
+// 			p_content[content_index] = buffer[i];
+// 			content_index++;
+// 		}
+// 	}
+
+// 	p->total_frag = atoi(p_total_frag);
+// 	p->frag_no = atoi(p_frag_no);
+// 	p->size = atoi(p_size);
+// 	p->filename = p_filename;
+// 	p->filedata = p_content;
+
+// 	printf("Parsed file data is \n %s \n", p->filedata);
+// }
+
+void send_check(int sendMsg) {
+	if(sendMsg < 0) {
+		fprintf(stderr, "server: error when sending message%n\n", sendMsg);
 	}
-
-	p->total_frag = atoi(p_total_frag);
-	p->frag_no = atoi(p_frag_no);
-	p->size = atoi(p_size);
-	p->filename = p_filename;
-	p->filedata = p_content;
-
-	printf("Parsed file data is \n %s \n", p->filedata);
 }

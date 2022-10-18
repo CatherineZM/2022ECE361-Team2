@@ -128,7 +128,15 @@ int main(int argc, char *argv[])
 		sendMsg = sendto(sockfd, p, MAXFILESTRLEN, 0, servinfo->ai_addr, servinfo->ai_addrlen);
 		send_check(sendMsg);
 		printf("packet<%d> sent\n", frag_no);
-		// freeaddrinfo(servinfo);
+
+		//=== WAITING FOR ACK HERE ===
+		//in lab 3, if no ack received, frag_no--
+		numbytes = recvfrom(sockfd, reply, MAXBUFLEN-1, 0,(struct sockaddr *)&server_addr, &server_addr_len);
+		if(numbytes < 0) {
+			fprintf(stderr, "deliver: ACK message received is invalid\n");
+			return 1;
+   		}
+		printf("packet<%d> is confirmed: <%s>\n", frag_no, reply);
 	}
 
     close(sockfd);
@@ -269,6 +277,7 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	strcat(file_str, str_buf);
 	strcat(file_str, file_name);
 	strcat(file_str, ":");
+	//=== MOVE BINARY DATA RATHER THAN STRCAT()===
 	text[len] = '\0';
 	strcat(file_str, text);
 
