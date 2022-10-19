@@ -10,7 +10,7 @@
 #include <time.h>
 
 #define MAXBUFLEN 100
-#define MAXFILELEN 9
+#define MAXFILELEN 1000
 #define MAXFILESTRLEN MAXFILELEN+MAXBUFLEN
 
 //define functions
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	}
 	
 	// client send "ftp" to server
-	char* handshake = "ftp"; 
+	char* handshake = "ftp\0"; 
 	int sendMsg;
 	start_t = clock(); //RTT starts
 	sendMsg = sendto(sockfd, handshake, strlen(handshake), 0, servinfo->ai_addr, servinfo->ai_addrlen);
@@ -124,8 +124,7 @@ int main(int argc, char *argv[])
 
 	for(frag_no = 1; frag_no <= total_frag; frag_no++) {
 		prepare_file_str(total_frag, frag_no, &file_name, &file_str);
-		char* p = &file_str[0]; 
-		sendMsg = sendto(sockfd, p, MAXFILESTRLEN, 0, servinfo->ai_addr, servinfo->ai_addrlen);
+		sendMsg = sendto(sockfd, file_str, MAXFILESTRLEN, 0, servinfo->ai_addr, servinfo->ai_addrlen);
 		send_check(sendMsg);
 		printf("packet<%d> sent\n", frag_no);
 
@@ -230,7 +229,7 @@ int cal_total_frag(char file_name[MAXBUFLEN]) {
 	FILE* text_file = NULL;
     int len;
 	strcpy(open_file, file_name);
-	text_file = fopen(open_file, "r");
+	text_file = fopen(open_file, "rb");
 	if(text_file == NULL) {
 		printf("Failed to read file <%s>\n", open_file);
 		return -1;
@@ -253,7 +252,7 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	char str_buf[MAXBUFLEN];
 	open_file[0] = '\0'; text[0] = '\0'; str_buf[0] = '\0';
 	strcpy(open_file, file_name);
-	text_file = fopen(open_file, "r");
+	text_file = fopen(open_file, "rb");
 	if(text_file == NULL) 
 		printf("Failed to prepare packet <%d>\n", frag_no);
 
@@ -284,9 +283,10 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	strcat(file_str, "\0");
 	//=== MOVE BINARY DATA RATHER THAN STRCAT()===
 	int index = strlen(file_str);
-	for(int i=0; i<len; i++)
+	for(int i=0; i<len; i++){
 		file_str[index + i] = text[i];
+	}
 		
-	printf("packet str = \"%s\"\n", file_str);
+	// printf("packet str = \"%s\"\n", file_str);
 	fclose(text_file);
 }
