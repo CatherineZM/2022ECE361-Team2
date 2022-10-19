@@ -13,7 +13,7 @@
 #define MAXFILELEN 1000
 #define MAXFILESTRLEN MAXFILELEN+MAXBUFLEN
 
-//define functions
+// define functions
 int read_client_input();
 int cal_total_frag();
 void prepare_file_str();
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	char* handshake = "ftp\0"; 
 	int sendMsg;
 	start_t = clock(); //RTT starts
-	sendMsg = sendto(sockfd, handshake, strlen(handshake), 0, servinfo->ai_addr, servinfo->ai_addrlen);
+	sendMsg = sendto(sockfd, handshake, strlen(handshake)+1, 0, servinfo->ai_addr, servinfo->ai_addrlen);
 	send_check(sendMsg);
 
 	freeaddrinfo(servinfo);
@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "deliver: message received is invalid\n");
 		return 1;
     }
+
 	// if server's reply is "yes", tell user file transfer can start
 	if(strcmp(reply, "yes") == 0) {
 		fprintf(stdout, "Server responds OK\n");
@@ -116,6 +117,7 @@ int main(int argc, char *argv[])
 	}
 	end_t = clock(); //RTT ends
 
+	// calculate the round-trip time
 	RTT = (double)(end_t - start_t) / CLOCKS_PER_SEC;
   	printf("The round-trip time (RTT) = %.3f ms\n", RTT*1000);
 
@@ -142,12 +144,6 @@ int main(int argc, char *argv[])
     close(sockfd);
 
 	return 0;
-}
-
-void send_check(int sendMsg) {
-	if(sendMsg < 0) {
-		fprintf(stderr, "deliver: error when sending message%n\n", sendMsg);
-	}
 }
 
 int read_client_input(char* input, int input_length, char file_name[MAXBUFLEN]) {
@@ -250,7 +246,11 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	char text[MAXFILELEN+1]; //'\0' at last
     int len, len_end;
 	char str_buf[MAXBUFLEN];
-	open_file[0] = '\0'; text[0] = '\0'; str_buf[0] = '\0';
+	open_file[0] = '\0';
+	text[0] = '\0';
+	str_buf[0] = '\0';
+
+	// open file
 	strcpy(open_file, file_name);
 	text_file = fopen(open_file, "rb");
 	if(text_file == NULL) 
@@ -264,9 +264,9 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 		fseek(text_file, (frag_no-1)*MAXFILELEN, SEEK_SET);
 		len = ftell(text_file);
 		len = len_end - len;
-	}
-	else
+	} else {
 		len = MAXFILELEN;
+	}
 	fread(text, sizeof(char), len, text_file);
 
 	//make up file_str
@@ -286,7 +286,12 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	for(int i=0; i<len; i++){
 		file_str[index + i] = text[i];
 	}
-		
-	// printf("packet str = \"%s\"\n", file_str);
+
 	fclose(text_file);
+}
+
+void send_check(int sendMsg) {
+	if(sendMsg < 0) {
+		fprintf(stderr, "deliver: error when sending message%n\n", sendMsg);
+	}
 }
