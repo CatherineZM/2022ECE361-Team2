@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	
 	// promte message for a user to enter command and save input message
 	while(1) {
-		printf("Enter your input in format ftp <filename.txt>: \n");
+		printf("Enter your input in format ftp <filename>: \n");
 		fgets(message, MAXBUFLEN, stdin);
 		// printf("deliver: your input message is %s", message);
 		if(read_client_input(message, MAXBUFLEN, &file_name))
@@ -138,6 +138,7 @@ int main(int argc, char *argv[])
    		}
 		printf("packet<%d> is confirmed: <%s>\n", frag_no, reply);
 	}
+	printf("File <%s> is transferred successfully!\n", file_name);
 
     close(sockfd);
 
@@ -157,6 +158,7 @@ int read_client_input(char* input, int input_length, char file_name[MAXBUFLEN]) 
 	char input_command[MAXBUFLEN]; 
 	char input_file[MAXBUFLEN];
 	char ftp_command[] = "ftp";
+	input_command[0] = '\0'; input_file[0] = '\0';
 
 	// breakdown input strings into input_command and input_file and error check on arguments
 	for(int i=0; (i<input_length) && (input[i]!='\0'); i++) {
@@ -224,6 +226,7 @@ int read_client_input(char* input, int input_length, char file_name[MAXBUFLEN]) 
 //calculate total frags in file
 int cal_total_frag(char file_name[MAXBUFLEN]) {
 	char open_file[MAXBUFLEN];
+	open_file[0] = '\0';
 	FILE* text_file = NULL;
     int len;
 	strcpy(open_file, file_name);
@@ -248,6 +251,7 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	char text[MAXFILELEN+1]; //'\0' at last
     int len, len_end;
 	char str_buf[MAXBUFLEN];
+	open_file[0] = '\0'; text[0] = '\0'; str_buf[0] = '\0';
 	strcpy(open_file, file_name);
 	text_file = fopen(open_file, "r");
 	if(text_file == NULL) 
@@ -277,9 +281,12 @@ void prepare_file_str(int total_frag, int frag_no, char file_name[MAXBUFLEN], ch
 	strcat(file_str, str_buf);
 	strcat(file_str, file_name);
 	strcat(file_str, ":");
+	strcat(file_str, "\0");
 	//=== MOVE BINARY DATA RATHER THAN STRCAT()===
-	text[len] = '\0';
-	strcat(file_str, text);
-
+	int index = strlen(file_str);
+	for(int i=0; i<len; i++)
+		file_str[index + i] = text[i];
+		
+	printf("packet str = \"%s\"\n", file_str);
 	fclose(text_file);
 }

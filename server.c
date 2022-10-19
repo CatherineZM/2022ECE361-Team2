@@ -128,10 +128,11 @@ int main(int argc, char *argv[])
 				//packet string received, send ACK to client
 				sendMsg = sendto(sockfd, "ACK", strlen("ACK")+1, 0, (struct sockaddr *) &client_addr, client_addr_len);
 				send_check(sendMsg);
+				printf("<ACK> sent\n");
 			}
 		}
 		
-		printf("File is created\n\nListening to port again...\n");
+		printf("File is created in folder <received_file>\n\nListening to port again...\n");
 	}
 
     close(sockfd);
@@ -152,9 +153,12 @@ int create_file(char received_str[MAXFILESTRLEN]) {
 	int size = 0;
 	char file_name[MAXBUFLEN]; 
 	char file_txt[MAXFILELEN+1]; //for '\0'
-
+	char file_path[MAXBUFLEN];
+	file_name[0] = '\0'; file_txt[0] = '\0'; file_path[0] = '\0';
+	int index = 0; int count=0;
 	//handle msg to abstract struct info from received file str
 	while(*p_move) {
+		count++;
 		if(*p_move == ':') {
 			num_index++;
 			if(num_index == 1)
@@ -168,6 +172,7 @@ int create_file(char received_str[MAXFILESTRLEN]) {
 				bytes_len = p_move - p_cpy;
 				strncpy(file_name, received_str+abs(bytes_index), abs(bytes_len));
 				file_name[abs(bytes_len)] = '\0';
+				index = count;
 			}
 			p_cpy = p_move+1;
 			p_move++;
@@ -175,28 +180,26 @@ int create_file(char received_str[MAXFILESTRLEN]) {
 		else 
 			p_move++;
 	}
-	bytes_index = p_cpy - p;
-	bytes_len = p_move - p_cpy;
-	strncpy(file_txt, received_str+abs(bytes_index), abs(bytes_len));
-	file_txt[abs(bytes_len)] = '\0';
-	// printf("total frag = %d, frag_no = %d, size = %d, file name = %s, file text = %s\n", 
-	// total_frag, frag_no, size, file_name, file_txt);
+	//set file txt
+	for(int i=0; i<size; i++)
+		file_txt[i] = received_str[index+i];	
+	file_txt[size] = '\0';
 
-	//since server&client are the same, create new_file.txt instead
-	strcpy(file_name, "newfile.txt");
-	file_name[11] = '\0';
+	//create file in the received_file folder
+	strcat(file_path, "received_file/");
+	strcat(file_path, file_name);
 
 	//create file
 	FILE *fp = NULL;
-	fp = fopen(file_name,"a");
+	fp = fopen(file_path,"a");
 	if (fp == NULL) {
-        printf("Error opening the file <%s>\n", file_name);
+        printf("Error opening the file <%s>\n", file_path);
     }
     // write to the text file
 	fprintf(fp, "%s", file_txt);
 	fclose(fp);
 
-	printf("packet<%d> is done\n", frag_no);
+	printf("packet<%d> is done ", frag_no);
 	if(frag_no == total_frag)
 		return 1;
 	else
