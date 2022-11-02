@@ -120,6 +120,14 @@ int main(int argc, char *argv[])
 	// calculate the round-trip time
 	RTT = (double)(end_t - start_t) / CLOCKS_PER_SEC;
   	printf("The round-trip time (RTT) = %.3f ms\n", RTT*1000);
+	// set up timer based on the RTT
+	struct timeval timeout = {0, 100};
+	int timeout_timer = setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&timeout, sizeof(struct timeval));
+	if( timeout_timer < 0 ){
+		fprintf(stderr, "deliver: failed to set up timeout timer\n");
+		return 1;
+	}
+	int resend_numbytes = 0;
 
 	total_frag = cal_total_frag(&file_name);
 	printf("File will sent in %d packets\n", total_frag);
@@ -134,8 +142,29 @@ int main(int argc, char *argv[])
 		//in lab 3, if no ack received, frag_no--
 		numbytes = recvfrom(sockfd, reply, MAXBUFLEN-1, 0,(struct sockaddr *)&server_addr, &server_addr_len);
 		if(numbytes < 0) {
-			fprintf(stderr, "deliver: ACK message received is invalid\n");
-			return 1;
+			printf("deliver: error occurred when receiving ACK message\n");
+			if( errno == EAGAIN || errno == EWOULDBLOCK)
+			{
+				printf("deliver: timeout when receiving ACK message \n");
+				printf("Attempt to resend packet %d\n", frag_no);
+				int resend = 0;
+				while(recvfrom(sockfd, reply, MAXBUFLEN-1, 0,(struct sockaddr *)&server_addr, &server_addr_len)<0)
+				{
+					if(resend == 10){
+						printf("deliver: timeout when resending packet %d\n", frag_no);
+						return 1;
+					}
+					sendMsg = sendto(sockfd, file_str, MAXFILESTRLEN, 0, servinfo->ai_addr, servinfo->ai_addrlen);
+					send_check(sendMsg);
+					printf("Resent packet<%d> sent\n", frag_no);
+					resend++;
+				}
+			}
+			else
+			{
+				fprintf(stderr, "deliver: ACK message received is invalid\n");
+				return 1;
+			}
    		}
 		printf("packet<%d> is confirmed: <%s>\n", frag_no, reply);
 	}

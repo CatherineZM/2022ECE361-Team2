@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <sys/stat.h>
+#include <time.h>
 #include "packet.h"
 
 #define MAXBUFLEN 100
@@ -19,6 +20,7 @@
 void process_packet(char* buffer, struct packet* p);
 int create_file();
 void send_check();
+double uniform_rand();
 
 int main(int argc, char *argv[])
 {
@@ -27,7 +29,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr,"server: Invalid input number, expect 2 but input %d\n", argc);
 		exit(1);
 	}
-	
 	// get port number from input
 	char * portInput = argv[1];
 	int portNum = atoi(portInput);
@@ -93,11 +94,11 @@ int main(int argc, char *argv[])
 		const char* rm_cmd;
 		rm_cmd = "rm -rf received_file";
 		system(rm_cmd);
-	}else{
-		system("mkdir received_file");
 	}
 	system("mkdir received_file");
+	printf("server: the folder /received_file used to store created.\n");
 
+	srand(time(NULL));
 	// receive message from client
 	while(1) {
 		numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1, 0,(struct sockaddr *)&client_addr, &client_addr_len);
@@ -130,28 +131,33 @@ int main(int argc, char *argv[])
 		//file transfer starts
 		printf("Start receiving file...\n");
 		int file_created = 1;
+		double random_num;
 		while(file_created) {
 			// clean the command string
 			memset(received_str,0,sizeof(received_str));
 			// received packet
 			numbytes = recvfrom(sockfd, received_str, MAXFILESTRLEN, 0,(struct sockaddr *)&client_addr, &client_addr_len);
-			
 			if(numbytes < 0) {
 				fprintf(stderr, "server: file received is invalid\n");
 				return 1;
 			} else {
-				struct packet packet_rcv;
-				// process the packet
-				process_packet(received_str, &packet_rcv);
-				
-				// create new file based on the received info
-				if(create_file(&packet_rcv))
-					file_created = 0;
-				
-				//packet string received, send ACK to client
-				sendMsg = sendto(sockfd, "ACK", strlen("ACK")+1, 0, (struct sockaddr *) &client_addr, client_addr_len);
-				send_check(sendMsg);
-				printf("<ACK> sent\n");
+				random_num = uniform_rand();
+				if (random_num > 0.5) {
+					struct packet packet_rcv;
+					// process the packet
+					process_packet(received_str, &packet_rcv);
+					
+					// create new file based on the received info
+					if(create_file(&packet_rcv))
+						file_created = 0;
+					
+					//packet string received, send ACK to client
+					sendMsg = sendto(sockfd, "ACK", strlen("ACK")+1, 0, (struct sockaddr *) &client_addr, client_addr_len);
+					send_check(sendMsg);
+					printf("<ACK> sent\n");
+				} else {
+					printf("server: dropping packet\n");
+				}
 			}
 		}
 		
@@ -264,4 +270,12 @@ void send_check(int sendMsg) {
 	if(sendMsg < 0) {
 		fprintf(stderr, "server: error when sending message%n\n", sendMsg);
 	}
+}
+
+double uniform_rand() {
+	int low_bound = 1;
+	int high_bound = 31;
+	int random_num = low_bound + (rand() % (high_bound - low_bound));
+	double unirand = (double)random_num / (double)high_bound;
+	return unirand;
 }
