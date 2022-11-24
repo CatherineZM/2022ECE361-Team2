@@ -17,34 +17,25 @@
 
 #define MAX_COMMAND_LEN 1000
 
-enum command{
-    LOGIN,
-    LO_ACK,
-    LO_NAK,
-    EXIT,
-    JOIN,
-    JN_ACK,
-    JN_NAK,
-    LEAVE_SESS,
-    NEW_SESS,
-    NS_ACK,
-    MESSAGE,
-    QUERY,
-    QU_ACK,
-    QUIT
+struct userInfo{
+    unsigned char username[MAX_NAME];
+    unsigned char password[MAX_NAME];
+    unsigned char ipAddr[MAX_NAME];
+    unsigned char portNum[MAX_DATA];
 };
 
 int userCommand(char* userInput);
-int tryLogIn(char *content, char *userInfo);
+int tryLogIn(char *content, struct userInfo* user);
 int getSessionID(char* content, char* sessionID);
-int generateLogInMessage(char* userInfo, struct message messageToSend);
-int generateExitMessage(struct message messageToSend);
-int generateJoinMessage(char* sessionID, struct message messageToSend);
-int generateLeaveSessMessage(struct message messageToSend);
-int generateNewSessMessage(char* sessionID, struct message messageToSend);
-int generateTextMessage(char* content, struct message messageToSend);
-int generateQueryMessage(struct message messageToSend);
-int sendMessage(int sockfd, struct message messageToSend);
-int readMessage(char* serverReply, struct message receivedMessage);
+int generateLogInMessage(struct userInfo user, struct message* messageToSend);
+int generateExitMessage(struct message* messageToSend);
+int generateJoinMessage(char* sessionID, struct message* messageToSend);
+int generateLeaveSessMessage(struct message* messageToSend);
+int generateNewSessMessage(char* sessionID, struct message* messageToSend);
+int generateTextMessage(char* content, struct message* messageToSend);
+int generateQueryMessage(struct message* messageToSend);
+int sendMessage(int sockfd, struct message* messageToSend);
+int readMessage(char* serverReply, struct message* receivedMessage);
+void listUserAndSess(struct message receivedMessage);
 
 #endif

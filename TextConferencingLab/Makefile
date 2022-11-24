@@ -3,11 +3,10 @@ all: message server client
 message: message.c
 		 gcc -c message.c
 
-server: server.c
-		gcc -g -c server.c
-		gcc message.o server.o -o server 
+server: server.c server_actions.c
+		gcc -o server server.c server_actions.c
 
-client: client.c user_actions.h
+client: client.c user_actions.c
 		gcc -o client client.c user_actions.c
 
 clean:

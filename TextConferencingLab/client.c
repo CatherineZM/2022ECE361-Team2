@@ -36,17 +36,18 @@ int main(int argc, char *argv[]){
    	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; 
 	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 
     fd_set readfds;
     FD_ZERO(&readfds);
 
     int loggedIn = 0;
-    int joinedSess = 1;
+    int joinedSess = 0;
     int userInput;
     char input[MAX_COMMAND_LEN];
     char *command;
     char *inputContent;
-    char loginInfo[4];
+    struct userInfo loginInfo;
     char *sessionID;
     struct message newMessage;
     char serverReply[MAXBUFLEN];
@@ -65,17 +66,17 @@ int main(int argc, char *argv[]){
         // If user termiate the program
         if(userInput == QUIT){
             if(loggedIn){
+            	if(joinedSess){
+                    FD_CLR(sockfd, &readfds);
+                    free(sessionID);
+                }
                 freeaddrinfo(servinfo);
                 close(sockfd);
                 loggedIn = 0;
                 joinedSess = 0;
-                if(joinedSess){
-                    FD_CLR(sockfd, &readfds);
-                    free(sessionID);
-                }
             }
             printf("Terminating the program\n");
-            return 0;
+            return 1;
         // user action with extra input
         }else if((userInput == LOGIN) || (userInput == JOIN) || (userInput == NEW_SESS)){
 
@@ -88,10 +89,10 @@ int main(int argc, char *argv[]){
                 continue;
             }else if((userInput == LOGIN) && !loggedIn){
                 printf("Attempt to log in\n");
-                if(tryLogIn(inputContent, loginInfo)){
+                if(tryLogIn(inputContent, &loginInfo)){
                     printf("info correct\n");
                     // Get address information
-                    rv = getaddrinfo(&loginInfo[2], &loginInfo[3], &hints, &servinfo);
+                    rv = getaddrinfo(loginInfo.ipAddr, loginInfo.portNum, &hints, &servinfo);
                     if(rv != 0) {
                         fprintf(stderr, "client getaddrinfo: %s\n", gai_strerror(rv));
                         return 1;
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]){
                         perror("Error connecting to socket\n");
                     }
                     printf("Successfully connect to server\n");
-                    generateLogInMessage(loginInfo, newMessage);
+                    generateLogInMessage(loginInfo, &newMessage);
                 }else{
                     // fail to log in
                     continue;
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]){
                             continue;
                         }else{
                             if(getSessionID(inputContent, sessionID)){
-                                generateJoinMessage(inputContent, newMessage);
+                                generateJoinMessage(inputContent, &newMessage);
                                 printf("Joining new session %s\n", inputContent);
                             }else{
                                 continue;
@@ -139,7 +140,7 @@ int main(int argc, char *argv[]){
                             continue;
                         }else{
                             if(getSessionID(inputContent, sessionID)){
-                                generateNewSessMessage(inputContent, newMessage);
+                                generateNewSessMessage(inputContent, &newMessage);
                                 printf("Opening new session %s\n", inputContent);
                             }else{
                                 continue;
@@ -149,16 +150,20 @@ int main(int argc, char *argv[]){
                 }
             }
 
-            if(!sendMessage(sockfd, newMessage)){
+            if(!sendMessage(sockfd, &newMessage)){
                 continue;
             }
+            
             if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
                 fprintf(stderr, "client: message received is invalid\n");
                 return 1;
             }
-            if(!readMessage(serverReply, receivedMessage)){
+
+            if(!readMessage(serverReply, &receivedMessage)){
                 printf("Invalid message received from the server.\n");
             }
+            
+            printf("Reply from server: %s\n", receivedMessage.data);
             if(receivedMessage.type == LO_ACK){
                 printf("Successfully logged in\n");
                 loggedIn = 1;
@@ -173,6 +178,7 @@ int main(int argc, char *argv[]){
                 printf("Failed to join session %s \n", receivedMessage.data);
             }else if(receivedMessage.type == NS_ACK){
                 printf("Successfully created session\n");
+                joinedSess = 1;
             }
             continue;
         }else if(userInput == EXIT){
@@ -180,20 +186,21 @@ int main(int argc, char *argv[]){
                 printf("You are not logged in yet\n");
                 continue;
             }else{
-                freeaddrinfo(servinfo);
-                close(sockfd);
-                loggedIn = 0;
-                joinedSess = 0;
+                generateExitMessage(&newMessage);
+                if(!sendMessage(sockfd, &newMessage)){
+                    printf("EXIT: Failed to send message.\n");
+                    continue;
+                }
                 if(joinedSess){
                     FD_CLR(sockfd, &readfds);
                     free(sessionID);
                 }
-                generateExitMessage(newMessage);
-                if(!sendMessage(sockfd, newMessage)){
-                    printf("EXIT: Failed to send message.\n");
-                    continue;
-                }
+                freeaddrinfo(servinfo);
+                close(sockfd);
+                loggedIn = 0;
+                joinedSess = 0;
                 printf("Exiting from the server.\n");
+                continue;
             }
         }else if(userInput == LEAVE_SESS){
             if(!loggedIn){
@@ -203,19 +210,29 @@ int main(int argc, char *argv[]){
                 printf("You are not in a session\n");
                 continue;
             }else{
-                generateLeaveSessMessage(newMessage);
-                if(!sendMessage(sockfd, newMessage)){
+                generateLeaveSessMessage(&newMessage);
+                if(!sendMessage(sockfd, &newMessage)){
                     continue;
                 }
-                printf("Leaving the session %s\n", sessionID);
-                free(sessionID);
-            }
-        }else if(userInput == QUERY){
-            generateQueryMessage(newMessage);
-            if(!sendMessage(sockfd, newMessage)){
+                printf("Leaving the session\n");
                 continue;
             }
-            printf("List of session:\n");
+        }else if(userInput == QUERY){
+            generateQueryMessage(&newMessage);
+            if(!sendMessage(sockfd, &newMessage)){
+                continue;
+            }
+
+            if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
+                fprintf(stderr, "client: message received is invalid\n");
+                return 1;
+            }
+            
+            if(!readMessage(serverReply, &receivedMessage)){
+                printf("Invalid message received from the server.\n");
+            }
+            printf("List users and sessions: %s\n", receivedMessage.data);
+            continue;
         }else if(userInput == MESSAGE){
             if(!loggedIn){
                 printf("You are not logged in\n");
@@ -224,9 +241,9 @@ int main(int argc, char *argv[]){
                 printf("You are not in a session\n");
                 continue;
             }else{
-                generateTextMessage(input, newMessage);
-                printf("Sending message:%s in the session %s\n", input, sessionID);
-                if(!sendMessage(sockfd, newMessage)){
+                generateTextMessage(input, &newMessage);
+                printf("Sending message:%s in the session\n", input);
+                if(!sendMessage(sockfd, &newMessage)){
                     continue;
                 }
             }
@@ -245,7 +262,7 @@ int main(int argc, char *argv[]){
                     fprintf(stderr, "client: message received is invalid\n");
                     return 1;
                 }
-                if(!readMessage(serverReply, receivedMessage)){
+                if(!readMessage(serverReply, &receivedMessage)){
                     printf("Invalid message received from the server.\n");
                 }
                 if(receivedMessage.type == MESSAGE){
@@ -258,6 +275,7 @@ int main(int argc, char *argv[]){
                 continue;
             }
         }
+        continue;
     }
     return 0;
 }
