@@ -12,12 +12,12 @@
 #include "message.h"
 #include "server_actions.h"
 
-//global info
+/*//global info
 extern char online_users[USERNO][MAX_NAME];
 extern int session_list[SESSIONNO];
-int session_fds[SESSIONNO*USERNO];
+extern int session_fds[SESSIONNO*USERNO];
 extern char session_names[SESSIONNO][MAX_NAME];
-extern char session_members[SESSIONNO*USERNO][MAX_NAME];
+extern char session_members[SESSIONNO*USERNO][MAX_NAME];*/
 
 
 //initialize global variable
@@ -53,13 +53,20 @@ void get_online_list() {
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
 		printf("session:\n%s\n", session_members[i]);
 	}
+	for(int i=0; i<SESSIONNO*USERNO; i++) {
+		printf("session fd:\n%d\n", session_fds[i]);
+	}
 }
 
 
 //fork child to solo with the client
-void exclusive_service(int socketfd, int client_sock) {
+void* exclusive_service(void* argss){//} int socketfd, int client_sock) {
+	struct arg_struct* args=(struct arg_struct*)argss;
+	int socketfd = args->socketfd;
+	int client_sock = args->client_sock;
+
 	//child starts here
-	error_check(close(socketfd), ZERO, "close");
+	//error_check(close(socketfd), ZERO, "close");
 	while(1) {
 	//clean buffers
 	char server_message[MSGBUFLEN], client_message[MSGBUFLEN]; int numbytes;
@@ -76,6 +83,7 @@ void exclusive_service(int socketfd, int client_sock) {
 	printf("Reading the message...\n");
 	sort_message(client_message, &client_message_struct);
 	printf("Detecting the action...\n");
+	// get_online_list();
 	int reply = action_detect(&client_message_struct, &server_message_struct, client_sock);
 	error_check(reply, NONNEGATIVEONE, "action_detect");
 	if(reply == 2) {
@@ -91,6 +99,7 @@ void exclusive_service(int socketfd, int client_sock) {
 	}
 	printf("\n");
 	}
+	error_check(close(client_sock), ZERO, "close");
 }
 
 //make server message string
@@ -108,10 +117,8 @@ int action_detect(struct message* client_message_struct, struct message* server_
 	type = client_message_struct->type;
 	switch(type) {
 		case LOGIN:
-			get_online_list();
 			printf("LOGIN request detected\n");
 			login(client_message_struct, server_message_struct);
-			get_online_list();
 			return 1;
 			break;
 		case EXIT:
@@ -125,7 +132,6 @@ int action_detect(struct message* client_message_struct, struct message* server_
 			printf("JOIN request detected\n");
 			sid = join(client_message_struct, server_message_struct);
 			insert_fd(sid, client_sock);
-			get_online_list();
 			return 1;
 			break;
 		case LEAVE_SESS:
@@ -161,6 +167,7 @@ void insert_fd(int sid, int client_sock) {
 	if(sid == -1) {
 		return;
 	}
+	printf("my sid = %d\n", sid);
 	for(int i=0; i<USERNO; i++) {
 		if(session_fds[i] == -1) {
 			session_fds[sid+i] = client_sock;
@@ -199,35 +206,14 @@ void message(struct message* client_message_struct, struct message* server_messa
     memset(server_message, '\0', sizeof(server_message));
 	make_message(server_message, server_message_struct);
 	for(int i=0; i<USERNO; i++) {
-		if(session_fds[sid+i] != -1) {
-			client_sock = session_fds[sid+i];
+		client_sock = session_fds[sid+i];
+		if(client_sock != -1) {
+			printf("client sock = %d\n", client_sock);
 			error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
 			printf("Sync chating message\n");
 		}
 	}
 }
-
-// //conference text
-// void multimsg() {
-// 	char temp[MAX_DATA]; int fds = 0;
-// 	char source[MAX_DATA]; int sid; char server_message[MAX_DATA];
-// 	strcpy(source, client_message_struct->source);
-// 	for(int i=0; i<USERNO*SESSIONNO; i++) {
-// 		if(!strcmp(session_members[i], source)) {
-// 			sid = i/USERNO;
-// 			break;
-// 		}
-// 	}
-// 	for(int i=0; i<USERNO*SESSIONNO; i+=3) {
-// 		if(session_fds[i] != -1) {
-// 			int fd = session_fds[i];
-// 			set_msg_struct(MESSAGE, server_message_struct->size, source, client_message_struct->data, server_message_struct);
-// 			make_message(server_message, server_message_struct);
-// 			memset(server_message, '\0', sizeof(server_message));
-// 			error_check(send(fd, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
-// 		}
-// 	}
-// }
 
 //get active info
 void query(struct message* client_message_struct, struct message* server_message_struct) {
@@ -344,7 +330,7 @@ int update_list(struct message* client_message_struct, struct message* server_me
 
 //join function
 int join(struct message* client_message_struct, struct message* server_message_struct) {
-	get_online_list();
+	// get_online_list();
 	char id[MAX_DATA];
 	char session[MAX_DATA];
 	strcpy(id, client_message_struct->source);
@@ -357,16 +343,9 @@ int join(struct message* client_message_struct, struct message* server_message_s
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
 		return -1;
 	}
-	// if(!session_opened(atoi(session))) {
-	// 	strcpy(reply, session);
-	// 	strcat(reply, ", [ERROR] session does not exist");
-	// 	set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
-	// 	return -1;
-	// }
 	int session_id = -1;
 	bool no_session = true;
 	for(int i=0; i<SESSIONNO; i++) {
-		printf("dest = %s, serch = %s\n", session, session_names[i]);
 		if(!strcmp(session, session_names[i])) {
 			no_session = false;
 			session_id = i;
@@ -384,23 +363,12 @@ int join(struct message* client_message_struct, struct message* server_message_s
 		if(!strcmp(session_members[i], "EMPTY")) {
 			strcpy(session_members[i], id);
 			strcpy(reply, session);
-			strcat(reply, ", [SUCCESS] user joined session successfully");
+			strcat(reply, ", [SUCCESS] user joined session successfully ");
 			set_msg_struct(JN_ACK, strlen(reply), "Server", reply, server_message_struct);
-			return i;
+			return session_id;
 		}
 	}
 	printf("error: session full\n");
-}
-
-//if session open
-bool session_opened(int session) {
-	if(session<0 || session>=SESSIONNO) {
-		return false;
-	}
-	if(session_list[session]) {
-		return true;
-	}
-	return false;
 }
 
 //login function

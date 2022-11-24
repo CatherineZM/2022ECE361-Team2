@@ -9,14 +9,19 @@
 #include <netdb.h>
 #include <unistd.h>
 
+#include <pthread.h>
+
 #include "message.h"
 #include "server_actions.h"
 
 //global info
 char online_users[USERNO][MAX_NAME];
 int session_list[SESSIONNO];
+int session_fds[SESSIONNO*USERNO];
 char session_names[SESSIONNO][MAX_NAME];
 char session_members[SESSIONNO*USERNO][MAX_NAME];
+
+pthread_t tid[USERNO];
 
 int main(int argc, char *argv[]) {
 	input_check(argc, argv);
@@ -54,6 +59,7 @@ int main(int argc, char *argv[]) {
 	printf("Server is listening for incoming connections...\n\n");
 
 	//keep listening
+	int i=0;
 	while(1) {
 		int client_sock;
 		client_addrlen = sizeof(client_addr);
@@ -66,14 +72,20 @@ int main(int argc, char *argv[]) {
 		}
 		printf("Accepted an incoming connection\n");
 		printf("Client connected at IP: %s and port: %i\n\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-		int pid = fork();
+		
+		struct arg_struct *argss=malloc(sizeof(struct arg_struct));
+		argss->socketfd=socketfd;
+		argss->client_sock=client_sock;
+		pthread_create(&(tid[i++]),NULL, exclusive_service, (void*)argss);
+		
+		/*int pid = fork();
 		if(pid==0) {
 			exclusive_service(socketfd, client_sock);
 			break;
 		}
 		else {
 			error_check(close(client_sock), ZERO, "close");
-		}
+		}*/
 	}
 	
 	printf("\nREACH END\n");

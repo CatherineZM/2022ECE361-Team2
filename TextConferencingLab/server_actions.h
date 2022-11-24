@@ -26,10 +26,22 @@
 #define USERNO 3
 #define SESSIONNO 5
 
+//global info
+extern char online_users[USERNO][MAX_NAME];
+extern int session_list[SESSIONNO];
+extern int session_fds[SESSIONNO*USERNO];
+extern char session_names[SESSIONNO][MAX_NAME];
+extern char session_members[SESSIONNO*USERNO][MAX_NAME];
+
+struct arg_struct{
+    int socketfd;
+    int client_sock;
+};
+
 void error_check(int ret, int suc, const char *msg); //error check
 void input_check(int argc, char *argv[]); //check valid input
 bool numeric(char *argv[]); //check numeric
-void exclusive_service(int socketfd, int client_sock); //fork child to solo with the client
+void* exclusive_service(void* argss);//int socketfd, int client_sock); //fork child to solo with the client
 void sort_message(char client_message[MSGBUFLEN], struct message* client_message_struct); //sort client message string into message struct form
 void initialize();
 int action_detect(struct message* client_message_struct, struct message* server_message_struct, int client_sock);
