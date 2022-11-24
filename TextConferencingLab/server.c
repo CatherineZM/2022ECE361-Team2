@@ -73,7 +73,6 @@ int main(int argc, char *argv[]) {
 		}
 		else {
 			error_check(close(client_sock), ZERO, "close");
-			
 		}
 	}
 	

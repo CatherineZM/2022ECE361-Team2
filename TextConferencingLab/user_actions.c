@@ -209,7 +209,7 @@ int readMessage(char* serverReply, struct message* receivedMessage){
 
 void listUserAndSess(struct message receivedMessage){
 	printf("List users and sessions: \n");
-	printf("Session | User \n");
+	printf("Session - User | User \n");
 	printf("=============== \n");
 	char inputString[MAX_COMMAND_LEN];
 	strcpy(inputString, receivedMessage.data);
@@ -218,11 +218,11 @@ void listUserAndSess(struct message receivedMessage){
 	pair = strtok(inputString, ",");
 	while(pair != NULL){
 		session = strtok(pair, "-");
-		print("The session is: %s", session);
+		printf("The session is: %s", session);
 		user = pair+strlen(session)+1;
 		pair = strtok(NULL, ",");
 		printf("%s | %s \n", session, user);
-	}s
+	}
 	
 	return;
 }

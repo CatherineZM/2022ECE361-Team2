@@ -32,17 +32,19 @@ bool numeric(char *argv[]); //check numeric
 void exclusive_service(int socketfd, int client_sock); //fork child to solo with the client
 void sort_message(char client_message[MSGBUFLEN], struct message* client_message_struct); //sort client message string into message struct form
 void initialize();
-int action_detect(struct message* client_message_struct, struct message* server_message_struct);
+int action_detect(struct message* client_message_struct, struct message* server_message_struct, int client_sock);
 bool session_opened(int session);
 void login(struct message* client_message_struct, struct message* server_message_struct);
-void join(struct message* client_message_struct, struct message* server_message_struct);
+int join(struct message* client_message_struct, struct message* server_message_struct);
 void set_msg_struct(int type, int size, char source[MAX_NAME], char data[MAX_DATA], struct message* server_message_struct);
 bool loggedin(char id[MAX_NAME]);
 void make_message(char server_message[MSGBUFLEN], struct message* server_message_struct);
 void get_online_list();
-void update_list(struct message* client_message_struct, struct message* server_message_struct, int all);
-void new_sess(struct message* client_message_struct, struct message* server_message_struct);
+int update_list(struct message* client_message_struct, struct message* server_message_struct, int all);
+int new_sess(struct message* client_message_struct, struct message* server_message_struct);
 void message(struct message* client_message_struct, struct message* server_message_struct);
 void query(struct message* client_message_struct, struct message* server_message_struct);
+void remove_fd(int sid, int client_sock);
+void insert_fd(int sid, int client_sock);
 
 #endif
