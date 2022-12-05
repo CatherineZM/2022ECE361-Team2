@@ -18,6 +18,7 @@
 #define MAX_COMMAND_LEN 1000
 #define MAXBUFLEN 1000
 
+
 int main(int argc, char *argv[]){
     printf("Start Text Conferencing Lab \n");
 
@@ -258,6 +259,7 @@ int main(int argc, char *argv[]){
             }
             // receive message in session
             if(FD_ISSET(sockfd, &readfds)){
+                if (DEBUG) fprintf(stderr, "here\n");
                 if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
                     fprintf(stderr, "client: message received is invalid\n");
                     return 1;
@@ -272,6 +274,7 @@ int main(int argc, char *argv[]){
                 }
             // send message in session
             }else if(FD_ISSET(0, &readfds)){
+                if (DEBUG) fprintf(stderr, "here2\n");
                 continue;
             }
         }

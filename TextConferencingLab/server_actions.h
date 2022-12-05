@@ -16,15 +16,21 @@
 #include "message.h"
 
 //define constant
-#define BUFLEN 100
+//change and test
+#define USERNO 3
+#define SESSIONNO 5
+//constant size
+#define MSGBUFLEN 2000
+#define BACKLOG 5
+//help setting errorno
 #define NONZERO 3
 #define ZERO 4
 #define NONNEGATIVE 5
 #define NONNEGATIVEONE 6
-#define BACKLOG 5
-#define MSGBUFLEN 2000
-#define USERNO 3
-#define SESSIONNO 5
+//holding a number
+#define OUT 2
+#define CONFUSE -1
+
 
 //global info
 extern char online_users[USERNO][MAX_NAME];
@@ -38,11 +44,11 @@ struct arg_struct{
     int client_sock;
 };
 
-void error_check(int ret, int suc, const char *msg); //error check
-void input_check(int argc, char *argv[]); //check valid input
-bool numeric(char *argv[]); //check numeric
-void* exclusive_service(void* argss);//int socketfd, int client_sock); //fork child to solo with the client
-void sort_message(char client_message[MSGBUFLEN], struct message* client_message_struct); //sort client message string into message struct form
+void error_check(int ret, int suc, const char *msg);
+void input_check(int argc, char *argv[]);
+bool numeric(char *argv[]); 
+void* exclusive_service(void* argss);
+void sort_message(char client_message[MSGBUFLEN], struct message* client_message_struct);
 void initialize();
 int action_detect(struct message* client_message_struct, struct message* server_message_struct, int client_sock);
 bool session_opened(int session);

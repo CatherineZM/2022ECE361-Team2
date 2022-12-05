@@ -11,4 +11,3 @@ client: client.c user_actions.c
 
 clean:
 	rm -f *.o server client
-

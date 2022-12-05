@@ -6,6 +6,7 @@
 
 #define MAX_NAME 100
 #define MAX_DATA 100
+#define DEBUG 1
 
 struct message{
     unsigned int type;
