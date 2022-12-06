@@ -21,7 +21,8 @@ extern char session_members[SESSIONNO*USERNO][MAX_NAME];*/
 
 
 //pthread to solo with the client
-void* exclusive_service(void* argss){//} int socketfd, int client_sock) {
+void* exclusive_service(void* argss){
+	//} int socketfd, int client_sock) {
 	//passing variables
 	struct arg_struct* args = (struct arg_struct*) argss;
 	int socketfd = args->socketfd;
@@ -54,7 +55,11 @@ void* exclusive_service(void* argss){//} int socketfd, int client_sock) {
 		if(next_step) {
 			if(next_step == OUT) {
 				error_check(close(client_sock), ZERO, "close");
+				printf("\n");
 				break;
+			}
+			if(next_step == FD) {
+				strcpy(online_fds[client_sock], client_message_struct.source);
 			}
 			printf("Making response message...\n");
 			make_message(server_message, &server_message_struct);
@@ -77,6 +82,9 @@ void initialize() {
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
 		strcpy(session_members[i], "EMPTY");
 		session_fds[i] = -1;
+	}
+	for(int i=0; i<MAX_DATA; i++) {
+		strcpy(online_fds[i], "EMPTY");
 	}
 }
 
@@ -108,28 +116,28 @@ void make_message(char server_message[MSGBUFLEN], struct message* server_message
 
 //detect client action
 int action_detect(struct message* client_message_struct, struct message* server_message_struct, int client_sock) {
-	enum command type; int sid;
+	enum command type; int sid; int ret;
 	type = client_message_struct->type;
 	switch(type) {
 		case LOGIN:
 			printf("LOGIN request detected\n");
-			//checking existing user
+			//checking existing user from different socket
 			if(loggedin(client_message_struct->source)) {
 				char reply[MSGBUFLEN];
 				strcpy(reply, "[ERROR] user already logged in");
 				set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
-				printf("User \"%s\" already logged in\n\n", client_message_struct->source);
+				printf("User \"%s\" already logged in\n", client_message_struct->source);
 				return OUT;
 			}
-			login(client_message_struct, server_message_struct);
-			return true;
+			ret = login(client_message_struct, server_message_struct);
+			return ret;
 		case EXIT:
 			printf("EXIT request detected\n");
 			sid = update_list(client_message_struct, server_message_struct, OUT);
 			if(sid != CONFUSE) {
 				remove_fd(sid, client_sock);
 			}
-			printf("User \"%s\" logged out\n\n", client_message_struct->source);
+			printf("User \"%s\" logged out\n", client_message_struct->source);
 			return OUT;
 		case JOIN:
 			printf("JOIN request detected\n");
@@ -163,11 +171,101 @@ int action_detect(struct message* client_message_struct, struct message* server_
 			printf("QUERY request detected\n");
 			query(client_message_struct, server_message_struct);
 			return true;
+		case REG:
+			printf("REG request detected\n");
+			ret = regi(client_message_struct, server_message_struct);
+			return ret;
+		case PVT:
+			printf("PVT request detected\n");
+			ret = pvt(client_message_struct, server_message_struct);
+			return ret;
       	default:
 			return CONFUSE;
 	}
 	printf("Action detection finished\n");
 	return false;
+}
+
+int pvt(struct message* client_message_struct, struct message* server_message_struct) {
+	char source[MAX_DATA];
+	char reply[MAX_DATA];
+	char *token = NULL;
+	const char separate[] = ",";
+	char recv_name[MAX_NAME]; char pvt_msg[MAX_DATA];
+	strcpy(source, client_message_struct->data);
+
+	token = strtok(source, separate);
+	strcpy(recv_name, token);
+	token = strtok(NULL, separate);
+	strcpy(pvt_msg, token);
+
+	if(!loggedin(recv_name)) {
+		strcpy(reply, recv_name);
+		strcat(reply, ", [ERROR] can not find target user");
+		set_msg_struct(PVT_NAK, strlen(reply), "Server", reply, server_message_struct);
+		return OUT;
+	}
+	int client_sock = 0;
+	for(int i=0; i<MAX_DATA; i++) {
+		if(!strcmp(online_fds[i], recv_name)) {
+			client_sock = i;
+			break;
+		}
+	}
+	set_msg_struct(PVT_ACK, client_message_struct->size, client_message_struct->source, 
+	client_message_struct->data, server_message_struct);
+	printf("Completed TEXT message\n");
+	char server_message[MSGBUFLEN];
+    memset(server_message, '\0', sizeof(server_message));
+	make_message(server_message, server_message_struct);
+
+	printf("target sock = %d\n", client_sock);
+	error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
+	printf("Private message sent\n");
+
+	return true;
+}
+
+int regi(struct message* client_message_struct, struct message* server_message_struct) {
+	char id[MAX_DATA];
+	char psw[MAX_DATA];
+	strcpy(id, client_message_struct->source);
+	strcpy(psw, client_message_struct->data);
+
+	printf("Start matching user ID and password\n");
+	FILE *fp; char buff[MSGBUFLEN];
+	char *token = NULL;
+	const char separate[] = ":";
+	fp = fopen("User_Library.txt", "r+");
+	while(fscanf(fp, "%s", buff) != EOF) {
+		token = strtok(buff, separate);
+		if(!strcmp(token, id)) { //if username repeated
+			printf("Username existed, registration failed\n");
+			strcpy(buff, id);
+			strcat(buff, ", [ERROR] username existed");
+			set_msg_struct(REG_NAK, strlen(buff), "Server", buff, server_message_struct);
+			return OUT;
+		}
+	}
+
+   	fputs(id, fp);
+	fputs(separate, fp);
+	fputs(psw, fp);
+	fputs("\n", fp);
+	strcpy(buff, id);
+	strcat(buff, ", [SUCCESS] user registered uccessfully, connection with server is built");
+	printf("Registration success\n");
+	fclose(fp);
+
+	for(int i=0; i<USERNO; i++) {
+		if(!strcmp(online_users[i], "EMPTY")) {
+			strcpy(online_users[i], id);
+			set_msg_struct(REG_ACK, strlen(buff), "Server", buff, server_message_struct);
+			printf("Added user to online list\n");
+			return FD;
+		}
+	}
+	//bug here if USERNO is too small
 }
 
 //insert client_sock fd into session_fds
@@ -188,6 +286,7 @@ void remove_fd(int sid, int client_sock) {
 			return;
 		}
 	}
+	strcpy(online_fds[client_sock], "EMPTY");
 }
 
 //communciation between users
@@ -221,7 +320,7 @@ int message(struct message* client_message_struct, struct message* server_messag
 			printf("Sync chating message\n");
 		}
 	}
-	return 1;
+	return true;
 }
 
 //get active info
@@ -247,25 +346,16 @@ void query(struct message* client_message_struct, struct message* server_message
 		}
 	}
 	strcpy(no_group_users, "/NoGroup");
+	int no_group = 0;
 	for(int i=0; i<USERNO; i++) {
-		if(!in_group(online_users[i])) {
+		if(strcmp(online_users[i], "EMPTY") && !in_group(online_users[i])) {
+			no_group++;
 			strcat(no_group_users, user_seperate);
 			strcat(no_group_users, online_users[i]);
 		}
 	}
 	strcat(list, no_group_users);
-	int count=0;
-	for(int i=0; i<SESSIONNO; i++) {
-		if(!strcmp(session_names[i], "EMPTY")) {
-			count++;
-		}
-	}
-	if(count == SESSIONNO) {
-		strcat(reply, "No active session");
-	}
-	else {
-		strcat(reply, list);
-	}
+	strcat(reply, list);
 
 	printf("Completed making active info\n");
 	printf("server message \"%s\"\n", reply);
@@ -407,7 +497,7 @@ int join(struct message* client_message_struct, struct message* server_message_s
 }
 
 //login function
-void login(struct message* client_message_struct, struct message* server_message_struct) {
+int login(struct message* client_message_struct, struct message* server_message_struct) {
 	//set id and psw
 	char id[MAX_DATA];
 	char psw[MAX_DATA];
@@ -415,31 +505,26 @@ void login(struct message* client_message_struct, struct message* server_message
 	strcpy(id, client_message_struct->source);
 	strcpy(psw, client_message_struct->data);
 
-	char users[USERNO*2][MAX_DATA] = {
-                   					"cardiA",
-                   					"123",
-                   					"cat",
-									"meow",
-                   					"anonymous",
-                   					"uoftECF"
-								};
 	printf("Start matching user ID and password\n");
-	//matching user id and psw
-	bool match = false;
-	for(int i=0; i<USERNO*2; i+=2) {
-		if(!strcmp(id, users[i])) {
-			if(!strcmp(psw, users[i+1])) {
-				match = true;
-			}
+	FILE *fp; char buff[MSGBUFLEN];
+	char *token = NULL;
+	const char separate[] = ":";
+	bool noman = true;
+	fp = fopen("User_Library.txt", "r+");
+	while(fscanf(fp, "%s", buff) != EOF) {
+		token = strtok(buff, separate);
+		if(!strcmp(token, id)) { //find username
+			noman = false;
+			token = strtok(NULL, separate);
 			break;
 		}
 	}
-	if(!match) {
+	if(noman || strcmp(token, psw)) {
 		strcpy(reply, "[ERROR] user ID or password is incorrect");
 		set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return;
+		return OUT;
 	}
-	
+	printf("User ID and password matched successfully\n");
 	//good login
 	//get_online_list();
 	for(int i=0; i<USERNO; i++) {
@@ -447,11 +532,11 @@ void login(struct message* client_message_struct, struct message* server_message
 			strcpy(online_users[i], id);
 			strcpy(reply, "[SUCCESS] user logged in successfully ");
 			set_msg_struct(LO_ACK, strlen(reply), "Server", reply, server_message_struct);
-			return;
+			return FD;
 		}
 	}
 	printf("failed to login user, server full\n");
-	return;
+	return OUT;
 }
 
 //checking if user aleady logged in

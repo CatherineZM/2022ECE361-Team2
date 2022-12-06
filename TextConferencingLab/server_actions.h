@@ -30,6 +30,7 @@
 //holding a number
 #define OUT 2 //==EXIT
 #define CONFUSE -1
+#define FD 3 //update fd
 
 
 //global info
@@ -38,6 +39,7 @@ extern int session_list[SESSIONNO];
 extern int session_fds[SESSIONNO*USERNO];
 extern char session_names[SESSIONNO][MAX_NAME];
 extern char session_members[SESSIONNO*USERNO][MAX_NAME];
+extern char online_fds[MAX_DATA][MAX_NAME];
 
 struct arg_struct{
     int socketfd;
@@ -52,7 +54,7 @@ void sort_message(char client_message[MSGBUFLEN], struct message* client_message
 void initialize();
 int action_detect(struct message* client_message_struct, struct message* server_message_struct, int client_sock);
 bool session_opened(int session);
-void login(struct message* client_message_struct, struct message* server_message_struct);
+int login(struct message* client_message_struct, struct message* server_message_struct);
 int join(struct message* client_message_struct, struct message* server_message_struct);
 void set_msg_struct(int type, int size, char source[MAX_NAME], char data[MAX_DATA], struct message* server_message_struct);
 bool loggedin(char id[MAX_NAME]);
@@ -65,5 +67,7 @@ int message(struct message* client_message_struct, struct message* server_messag
 void query(struct message* client_message_struct, struct message* server_message_struct);
 void remove_fd(int sid, int client_sock);
 void insert_fd(int sid, int client_sock);
+int regi(struct message* client_message_struct, struct message* server_message_struct);
+int pvt(struct message* client_message_struct, struct message* server_message_struct);
 
 #endif

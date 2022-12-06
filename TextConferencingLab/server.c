@@ -20,6 +20,7 @@ int session_list[SESSIONNO];
 int session_fds[SESSIONNO*USERNO];
 char session_names[SESSIONNO][MAX_NAME];
 char session_members[SESSIONNO*USERNO][MAX_NAME];
+char online_fds[MAX_DATA][MAX_NAME];
 
 pthread_t tid[USERNO];
 
