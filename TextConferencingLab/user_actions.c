@@ -149,6 +149,7 @@ int generateQueryMessage(struct message* messageToSend){
     messageToSend->type = QUERY;
     messageToSend->size = 0;
     strcpy(messageToSend->data, "");
+    strcpy(messageToSend->source, "");
 
     return 1;
 }
@@ -156,6 +157,10 @@ int generateQueryMessage(struct message* messageToSend){
 int sendMessage(int sockfd, struct message* messageToSend){
     int resSend;
     char message[MAX_COMMAND_LEN];
+    printf("type is %d", messageToSend->type);
+    printf("size is %d", messageToSend->size);
+    printf("source is %s", messageToSend->source);
+    printf("data is %s", messageToSend->data);
     sprintf(message, "%d:%d:%s:%s", messageToSend->type, messageToSend->size, messageToSend->source, messageToSend->data);
     resSend = send(sockfd, message, strlen(message), 0);
     if(resSend == -1){

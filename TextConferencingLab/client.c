@@ -57,16 +57,19 @@ int main(int argc, char *argv[]){
     while(1){
         printf("Enter your command: \n");
 		scanf("%[^\n]%*c", input);
-        
         char commandTmp[MAX_COMMAND_LEN];
         strcpy(commandTmp, input);
         command = strtok(commandTmp, " ");
-
         userInput = userCommand(command);
 
         // If user termiate the program
         if(userInput == QUIT){
             if(loggedIn){
+                generateExitMessage(&newMessage);
+                if(!sendMessage(sockfd, &newMessage)){
+                    printf("QUIT: Failed to send message.\n");
+                    continue;
+                }
             	if(joinedSess){
                     FD_CLR(sockfd, &readfds);
                     free(sessionID);
@@ -114,6 +117,8 @@ int main(int argc, char *argv[]){
                     }
                     printf("Successfully connect to server\n");
                     generateLogInMessage(loginInfo, &newMessage);
+                    FD_SET(sockfd, &readfds);
+                    FD_SET(0, &readfds);
                 }else{
                     // fail to log in
                     continue;
@@ -219,21 +224,27 @@ int main(int argc, char *argv[]){
                 continue;
             }
         }else if(userInput == QUERY){
-            generateQueryMessage(&newMessage);
-            if(!sendMessage(sockfd, &newMessage)){
+            if(!loggedIn){
+                printf("You are not logged in yet\n");
+                continue;
+            }else{
+                generateQueryMessage(&newMessage);
+                printf("Generated message");
+                if(!sendMessage(sockfd, &newMessage)){
+                    continue;
+                }
+                printf("Finished sending message\n");
+                if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
+                    fprintf(stderr, "client: message received is invalid\n");
+                    return 1;
+                }
+                
+                if(!readMessage(serverReply, &receivedMessage)){
+                    printf("Invalid message received from the server.\n");
+                }
+                printf("List users and sessions: %s\n", receivedMessage.data);
                 continue;
             }
-
-            if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
-                fprintf(stderr, "client: message received is invalid\n");
-                return 1;
-            }
-            
-            if(!readMessage(serverReply, &receivedMessage)){
-                printf("Invalid message received from the server.\n");
-            }
-            printf("List users and sessions: %s\n", receivedMessage.data);
-            continue;
         }else if(userInput == MESSAGE){
             if(!loggedIn){
                 printf("You are not logged in\n");
@@ -250,14 +261,20 @@ int main(int argc, char *argv[]){
             }
         }
 
+        printf("joined session? %d\n", joinedSess);
         if(joinedSess){
             int resSelect;
             resSelect = select(sockfd+1, &readfds, NULL, NULL, NULL);
+            printf("I'm here now after select, value of resSelect is %d", resSelect);
             if(resSelect == -1){
                 printf("client: error when selecting\n");
                 continue;
             }
             // receive message in session
+            int hi = FD_ISSET(sockfd, &readfds);
+            printf("I'm here now after ISSET, value of hi is %d", hi);
+            int hi2 = FD_ISSET(0, &readfds);
+            printf("I'm here now after ISSET2, value of hi is %d", hi2);
             if(FD_ISSET(sockfd, &readfds)){
                 if (DEBUG) fprintf(stderr, "here\n");
                 if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
