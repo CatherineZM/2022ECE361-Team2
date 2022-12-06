@@ -53,9 +53,8 @@ void* exclusive_service(void* argss){//} int socketfd, int client_sock) {
 		}
 		if(next_step) {
 			if(next_step == OUT) {
-				printf("User logged out\n\n");
 				error_check(close(client_sock), ZERO, "close");
-				exit(0);
+				break;
 			}
 			printf("Making response message...\n");
 			make_message(server_message, &server_message_struct);
@@ -64,7 +63,6 @@ void* exclusive_service(void* argss){//} int socketfd, int client_sock) {
 		}
 		printf("\n");
 	}
-	error_check(close(client_sock), ZERO, "close");
 }
 
 //initialize global variable
@@ -115,31 +113,51 @@ int action_detect(struct message* client_message_struct, struct message* server_
 	switch(type) {
 		case LOGIN:
 			printf("LOGIN request detected\n");
+			//checking existing user
+			if(loggedin(client_message_struct->source)) {
+				char reply[MSGBUFLEN];
+				strcpy(reply, "[ERROR] user already logged in");
+				set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
+				printf("User \"%s\" already logged in\n\n", client_message_struct->source);
+				return OUT;
+			}
 			login(client_message_struct, server_message_struct);
 			return true;
 		case EXIT:
 			printf("EXIT request detected\n");
-			sid = update_list(client_message_struct, server_message_struct, 1);
-			remove_fd(sid, client_sock);
+			sid = update_list(client_message_struct, server_message_struct, OUT);
+			if(sid != CONFUSE) {
+				remove_fd(sid, client_sock);
+			}
+			printf("User \"%s\" logged out\n\n", client_message_struct->source);
 			return OUT;
 		case JOIN:
 			printf("JOIN request detected\n");
 			sid = join(client_message_struct, server_message_struct);
-			insert_fd(sid, client_sock);
+			if(sid != CONFUSE) {
+				insert_fd(sid, client_sock);
+			}
 			return true;
 		case LEAVE_SESS:
 			printf("LEAVE_SESS request detected\n");
 			sid = update_list(client_message_struct, server_message_struct, 0);
-			remove_fd(sid, client_sock);
+			if(sid != CONFUSE) {
+				remove_fd(sid, client_sock);
+			}
 			break;
 		case NEW_SESS:
 			printf("NEW_SESS request detected\n");
 			sid = new_sess(client_message_struct, server_message_struct);
-			insert_fd(sid, client_sock);
+			if(sid != CONFUSE) {
+				insert_fd(sid, client_sock);
+			}
 			return true;
 		case MESSAGE:
 			printf("MESSAGE request detected\n");
-			message(client_message_struct, server_message_struct);
+			int check = message(client_message_struct, server_message_struct);
+			if(check == CONFUSE) {
+				return true;
+			}
 			break;
 		case QUERY:
 			printf("QUERY request detected\n");
@@ -173,9 +191,16 @@ void remove_fd(int sid, int client_sock) {
 }
 
 //communciation between users
-void message(struct message* client_message_struct, struct message* server_message_struct) {
-	char source[MAX_NAME]; int sid; int client_sock;
+int message(struct message* client_message_struct, struct message* server_message_struct) {
+	char source[MAX_NAME]; int sid; int client_sock; char reply[MSGBUFLEN];
 	strcpy(source, client_message_struct->source);
+
+	if(!in_group(source)) {
+		strcpy(reply, "[ERROR] user should join a session first");
+		set_msg_struct(MESSAGE, strlen(reply), "Server", reply, server_message_struct);
+		return CONFUSE;
+	}
+
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
 		if(!strcmp(source, session_members[i])) {
 			sid = i/USERNO;
@@ -196,25 +221,39 @@ void message(struct message* client_message_struct, struct message* server_messa
 			printf("Sync chating message\n");
 		}
 	}
+	return 1;
 }
 
 //get active info
 void query(struct message* client_message_struct, struct message* server_message_struct) {
 	printf("Loading active users and sessions...\n");
 	get_online_list();
-	char reply[MSGBUFLEN] = "ACTIVES ";
-	for(int i=0; i<SESSIONNO; i++) {
+	char session_seperate[] = "/";
+	char user_seperate[] = "-";
+	char list[MSGBUFLEN];
+	char no_group_users[MSGBUFLEN];
+	char reply[MSGBUFLEN];
+	strcat(reply, "List Info = ");
+	for(int i=0; i<SESSIONNO; i++) { // /session1-user1-user2/session2-user3/NoGroup-user4
 		if(strcmp(session_names[i], "EMPTY")) {
-			strcat(reply, session_names[i]);
-			strcat(reply, " - ");
+			strcat(list, session_seperate);
+			strcat(list, session_names[i]); //session ID
 			for(int j=0; j<USERNO; j++) {
 				if(strcmp(session_members[i+j], "EMPTY")) {
-					strcat(reply, session_members[i+j]);
-					strcat(reply, " | ");
+					strcat(list, user_seperate);
+					strcat(list, session_members[i+j]);
 				}
 			}
 		}
 	}
+	strcpy(no_group_users, "/NoGroup");
+	for(int i=0; i<USERNO; i++) {
+		if(!in_group(online_users[i])) {
+			strcat(no_group_users, user_seperate);
+			strcat(no_group_users, online_users[i]);
+		}
+	}
+	strcat(list, no_group_users);
 	int count=0;
 	for(int i=0; i<SESSIONNO; i++) {
 		if(!strcmp(session_names[i], "EMPTY")) {
@@ -222,7 +261,10 @@ void query(struct message* client_message_struct, struct message* server_message
 		}
 	}
 	if(count == SESSIONNO) {
-		strcpy(reply, "No active session");
+		strcat(reply, "No active session");
+	}
+	else {
+		strcat(reply, list);
 	}
 
 	printf("Completed making active info\n");
@@ -233,6 +275,15 @@ void query(struct message* client_message_struct, struct message* server_message
 //find valid session
 int new_sess(struct message* client_message_struct, struct message* server_message_struct) {
 	printf("Creating a new session...\n");
+	char source[MAX_NAME]; char reply[MSGBUFLEN];
+	strcpy(source, client_message_struct->source);
+
+	if(in_group(source)) {
+		strcpy(reply, "[ERROR] user already in a session");
+		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
+		return CONFUSE;
+	}
+
 	int sid = -1;
 	for(int i=0; i<SESSIONNO; i++) {
 		if(session_list[i] == 0) {
@@ -265,11 +316,12 @@ int new_sess(struct message* client_message_struct, struct message* server_messa
 
 
 //exit and leave function
-int update_list(struct message* client_message_struct, struct message* server_message_struct, int all) {
+int update_list(struct message* client_message_struct, struct message* server_message_struct, int out) {
 	printf("Updating list info\n");
-	char source[MAX_DATA]; int count; int sid; int fd;
+	char source[MAX_DATA]; int sid; int fd; bool noman = true;
 	strcpy(source, client_message_struct->source);
-	if(all) {
+
+	if(out) {
 		for(int i=0; i<USERNO; i++) {
 			if(!strcmp(source, online_users[i])) {
 				strcpy(online_users[i], "EMPTY");
@@ -277,25 +329,28 @@ int update_list(struct message* client_message_struct, struct message* server_me
 			}
 		}
 	}
-	for(int i=0; i<SESSIONNO*USERNO; i++) {
-		if(i%USERNO == 0) {
-			count = 0;
+	if(in_group(source)) {
+		for(int i=0; i<SESSIONNO*USERNO; i++) {
+			if(i%USERNO == 0) {
+				noman = true;
+			}
+			if(!strcmp(source, session_members[i])) {
+				strcpy(session_members[i], "EMPTY");
+				fd = i/USERNO;
+			}
+			if(strcmp(session_members[i], "EMPTY")) {
+				noman = false;
+			}
+			if(noman) { //delete session if last user leave
+				sid = i/USERNO;
+				session_list[sid] = 0;
+				strcpy(session_names[sid], "EMPTY");
+			}
 		}
-		if(!strcmp(source, session_members[i])) {
-			strcpy(session_members[i], "EMPTY");
-			fd = i/3;
-		}
-		if(!strcmp(session_members[i], "EMPTY")) {
-			count++;
-		}
-		if(count == USERNO) {
-			sid = i/USERNO;
-			session_list[sid] = 0;
-			strcpy(session_names[sid], "EMPTY");
-		}
+		return fd;
 	}
 	printf("List updated\n");
-	return fd;
+	return CONFUSE;
 }
 
 
@@ -307,12 +362,21 @@ int join(struct message* client_message_struct, struct message* server_message_s
 	strcpy(session, client_message_struct->data);
 	char reply[MAX_DATA];
 
+	//check if user loggedin
 	if(!loggedin(id)) {
 		strcpy(reply, session);
 		strcat(reply, ", [ERROR] user should login first");
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return -1;
+		return CONFUSE;
 	}
+	//check if user not in a session yet
+	if(in_group(id)) {
+		strcpy(reply, session);
+		strcat(reply, ", [ERROR] user already in a session");
+		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
+		return CONFUSE;
+	}
+	//check if session id existed
 	int session_id = -1;
 	bool no_session = true;
 	for(int i=0; i<SESSIONNO; i++) {
@@ -326,9 +390,9 @@ int join(struct message* client_message_struct, struct message* server_message_s
 		strcpy(reply, session);
 		strcat(reply, ", [ERROR] session does not exist");
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return -1;
+		return CONFUSE;
 	}
-	// int session_id = atoi(session);
+
 	for(int i=(session_id)*USERNO; i<(session_id+1)*USERNO; i++) {
 		if(!strcmp(session_members[i], "EMPTY")) {
 			strcpy(session_members[i], id);
@@ -338,7 +402,8 @@ int join(struct message* client_message_struct, struct message* server_message_s
 			return session_id;
 		}
 	}
-	printf("error: session full\n");
+	printf("server error: session full, try increase USERNO\n");
+	error_check(session_id, NONNEGATIVEONE, "join");
 }
 
 //login function
@@ -374,12 +439,7 @@ void login(struct message* client_message_struct, struct message* server_message
 		set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
 		return;
 	}
-	//checking existing user
-	if(loggedin(id)) {
-		strcpy(reply, "[ERROR] user already logged in");
-		set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return;
-	}
+	
 	//good login
 	//get_online_list();
 	for(int i=0; i<USERNO; i++) {
@@ -398,6 +458,15 @@ void login(struct message* client_message_struct, struct message* server_message
 bool loggedin(char id[MAX_NAME]) {
 	for(int i=0; i<USERNO; i++) {
 		if(!strcmp(id, online_users[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool in_group(char id[MAX_NAME]) {
+	for(int i=0; i<SESSIONNO*USERNO; i++) {
+		if(!strcmp(id, session_members[i])) {
 			return true;
 		}
 	}

@@ -28,7 +28,7 @@
 #define NONNEGATIVE 5
 #define NONNEGATIVEONE 6
 //holding a number
-#define OUT 2
+#define OUT 2 //==EXIT
 #define CONFUSE -1
 
 
@@ -56,11 +56,12 @@ void login(struct message* client_message_struct, struct message* server_message
 int join(struct message* client_message_struct, struct message* server_message_struct);
 void set_msg_struct(int type, int size, char source[MAX_NAME], char data[MAX_DATA], struct message* server_message_struct);
 bool loggedin(char id[MAX_NAME]);
+bool in_group(char id[MAX_NAME]);
 void make_message(char server_message[MSGBUFLEN], struct message* server_message_struct);
 void get_online_list();
 int update_list(struct message* client_message_struct, struct message* server_message_struct, int all);
 int new_sess(struct message* client_message_struct, struct message* server_message_struct);
-void message(struct message* client_message_struct, struct message* server_message_struct);
+int message(struct message* client_message_struct, struct message* server_message_struct);
 void query(struct message* client_message_struct, struct message* server_message_struct);
 void remove_fd(int sid, int client_sock);
 void insert_fd(int sid, int client_sock);
