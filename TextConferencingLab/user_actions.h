@@ -27,6 +27,7 @@ struct userInfo{
 int userCommand(char* userInput);
 int tryLogIn(char *content, struct userInfo* user);
 int createUser(char *content, struct userInfo* user);
+char *formatPrivateMessage(char* input);
 int getSessionID(char* content, char* sessionID);
 int generateLogInMessage(struct userInfo user, struct message* messageToSend);
 int generateRegisterMessage(struct userInfo user, struct message* messageToSend);
@@ -35,6 +36,7 @@ int generateJoinMessage(char* sessionID, struct message* messageToSend);
 int generateLeaveSessMessage(struct message* messageToSend);
 int generateNewSessMessage(char* sessionID, struct message* messageToSend);
 int generateTextMessage(char* content, struct message* messageToSend);
+int generatePrivateMessage(char* content, struct message* messageToSend);
 int generateQueryMessage(struct message* messageToSend);
 int sendMessage(int sockfd, struct message* messageToSend);
 int readMessage(char* serverReply, struct message* receivedMessage);
