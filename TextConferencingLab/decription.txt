@@ -1,0 +1,26 @@
+The two new features we decided to implement are:
+1. Private messaging:
+    1. Command: /private <receiver name> <message content>
+    2. Feature Explaination:
+        A user can send private message to another user regardless of whether they’re in a session or not. Only the receiver will be able to view it and it will include who is the sender. 
+    3. Implementation: 
+        We formatted the message packet sent from client to server to have:
+        Type: PVT 
+        Size: data Size
+        Source: sender's username
+        Data: <receiver's username>,<message content>
+
+        When the server receives the message packet, it will read the Data field and find out who is the receiver. Then .............. (to be filled)
+2. User registration: 
+    1. Command: /register <username> <password>
+    2. Feature Explaination:
+        A client can create a username and password and upon registration, the user will be logged in automatically.
+        Note: a client cannot create a new user if the client is already logged in as a user. The client has to log out before creating a new user.
+    3. Implementation:
+        We formatted the message packet sent from client to server to have:
+        Type: REG 
+        Size: data Size
+        Source: new user's username
+        Data: new user's password
+
+        .........(server action to be filled)
