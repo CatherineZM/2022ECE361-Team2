@@ -29,7 +29,13 @@ enum command{
     MESSAGE, // 10
     QUERY, // 11
     QU_ACK, // 12
-    QUIT // 13
+    QUIT, // 13
+    REG, // 14
+    REG_ACK, //15
+    REG_NAK, //16
+    PVT, // 17
+    PVT_ACK, // 18
+    PVT_NAK // 19
 };
 
 #endif

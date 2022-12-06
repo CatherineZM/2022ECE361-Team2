@@ -82,19 +82,19 @@ int main(int argc, char *argv[]){
             printf("Terminating the program\n");
             return 1;
         // user action with extra input
-        }else if((userInput == LOGIN) || (userInput == JOIN) || (userInput == NEW_SESS)){
+        }else if((userInput == LOGIN) || (userInput == JOIN) || (userInput == NEW_SESS) || (userInput == REG)){
 
             int commLength = strlen(command);
             inputContent = input+commLength+1;
             printf("original string is %s, The rest of user input is: %s\n", input, inputContent);
             
-            if((userInput == LOGIN) && loggedIn){
+            if(((userInput == LOGIN) && loggedIn) || ((userInput == REG) && loggedIn)){
                 printf("You have already logged in. \n");
                 continue;
             }else if((userInput == LOGIN) && !loggedIn){
                 printf("Attempt to log in\n");
                 if(tryLogIn(inputContent, &loginInfo)){
-                    printf("info correct\n");
+                    printf("info format correct\n");
                     // Get address information
                     rv = getaddrinfo(loginInfo.ipAddr, loginInfo.portNum, &hints, &servinfo);
                     if(rv != 0) {
@@ -121,6 +121,38 @@ int main(int argc, char *argv[]){
                     FD_SET(0, &readfds);
                 }else{
                     // fail to log in
+                    continue;
+                }
+            }else if((userInput == REG) && !loggedIn) {
+                printf("Creating a new user\n");
+                if(createUser(inputContent, &loginInfo)){
+                    printf("info format correct\n");
+                    // Get address information
+                    rv = getaddrinfo(loginInfo.ipAddr, loginInfo.portNum, &hints, &servinfo);
+                    if(rv != 0) {
+                        fprintf(stderr, "client getaddrinfo: %s\n", gai_strerror(rv));
+                        return 1;
+                    }
+
+                    // open the socket
+                    sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+                    if(sockfd == -1)
+                    {
+                        fprintf(stderr, "client: error when opening the socket");
+                        return 1; 
+                    }
+
+                    //connect to server
+                    if(connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) == -1){
+                        close(sockfd);
+                        perror("Error connecting to socket\n");
+                    }
+                    printf("Successfully connect to server\n");
+                    generateRegisterMessage(loginInfo, &newMessage);
+                    FD_SET(sockfd, &readfds);
+                    FD_SET(0, &readfds);
+                }else{
+                    // fail to register
                     continue;
                 }
             }else{
@@ -185,6 +217,13 @@ int main(int argc, char *argv[]){
             }else if(receivedMessage.type == NS_ACK){
                 printf("Successfully created session\n");
                 joinedSess = 1;
+            }else if(receivedMessage.type == REG_ACK){
+                printf("Successfully registered and logged in automatically\n");
+                loggedIn = 1;
+            }else if(receivedMessage.type == REG_NAK){
+                printf("Failed to register because of %s \n", receivedMessage.data);
+                freeaddrinfo(servinfo);
+                close(sockfd);
             }
             continue;
         }else if(userInput == EXIT){
@@ -265,16 +304,13 @@ int main(int argc, char *argv[]){
         if(joinedSess){
             int resSelect;
             resSelect = select(sockfd+1, &readfds, NULL, NULL, NULL);
-            printf("I'm here now after select, value of resSelect is %d", resSelect);
             if(resSelect == -1){
                 printf("client: error when selecting\n");
                 continue;
             }
             // receive message in session
             int hi = FD_ISSET(sockfd, &readfds);
-            printf("I'm here now after ISSET, value of hi is %d", hi);
             int hi2 = FD_ISSET(0, &readfds);
-            printf("I'm here now after ISSET2, value of hi is %d", hi2);
             if(FD_ISSET(sockfd, &readfds)){
                 if (DEBUG) fprintf(stderr, "here\n");
                 if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){

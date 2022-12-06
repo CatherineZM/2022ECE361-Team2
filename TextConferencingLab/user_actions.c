@@ -30,6 +30,10 @@ int userCommand(char* userInput){
         return QUERY;
     }else if(strcmp(userInput, "/quit") == 0){
         return QUIT;
+    }else if(strcmp(userInput, "/private") == 0){
+        return PVT;
+    }else if(strcmp(userInput, "/register") == 0){
+        return REG;
     }else{
         return MESSAGE;
     }
@@ -69,6 +73,40 @@ int tryLogIn(char* content, struct userInfo* user){
     return 1;
 }
 
+int createUser(char* content, struct userInfo* user){
+    int inputCount = 0;
+    char inputString[MAX_COMMAND_LEN];
+    strcpy(inputString, content);
+    char *component;
+
+    component = strtok(inputString, " ");
+    while( component != NULL){
+        printf("compo = %s\n", component);
+        if(inputCount == 0){
+        	strcpy(user->username, component);
+        }else if(inputCount == 1){
+        	strcpy(user->password, component);
+        }
+        else if(inputCount == 2){
+        	strcpy(user->ipAddr, component);
+        }
+        else if(inputCount == 3){
+        	strcpy(user->portNum, component);
+        }
+        inputCount++;
+        component = strtok( NULL, " ");
+    }
+    
+    printf("userinfo: %s\n", user->ipAddr);
+
+    if(inputCount != 4){
+        printf("createUser: invalid number of arguments for new user information\n");
+        return 0;
+    }
+
+    return 1;
+}
+
 int getSessionID(char* content, char* sessionID){
     int inputCount = 0;
     char inputString[MAX_COMMAND_LEN];
@@ -98,6 +136,15 @@ int getSessionID(char* content, char* sessionID){
 
 int generateLogInMessage(struct userInfo user, struct message* messageToSend){
     messageToSend->type = LOGIN;
+    strcpy(messageToSend->source, user.username);
+    messageToSend->size = strlen(user.password);
+    strcpy(messageToSend->data, user.password);
+
+    return 1;
+}
+
+int generateRegisterMessage(struct userInfo user, struct message* messageToSend){
+    messageToSend->type = REG;
     strcpy(messageToSend->source, user.username);
     messageToSend->size = strlen(user.password);
     strcpy(messageToSend->data, user.password);
