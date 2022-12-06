@@ -50,6 +50,7 @@ int main(int argc, char *argv[]){
     char *inputContent;
     struct userInfo loginInfo;
     char *sessionID;
+    char *privateMess;
     struct message newMessage;
     char serverReply[MAXBUFLEN];
     struct message receivedMessage;
@@ -82,8 +83,10 @@ int main(int argc, char *argv[]){
             printf("Terminating the program\n");
             return 1;
         // user action with extra input
-        }else if((userInput == LOGIN) || (userInput == JOIN) || (userInput == NEW_SESS) || (userInput == REG)){
-
+        }else if((userInput == LOGIN) || (userInput == JOIN) || 
+                 (userInput == NEW_SESS) || (userInput == REG) || 
+                 (userInput == PVT))
+        {
             int commLength = strlen(command);
             inputContent = input+commLength+1;
             printf("original string is %s, The rest of user input is: %s\n", input, inputContent);
@@ -184,6 +187,17 @@ int main(int argc, char *argv[]){
                                 continue;
                             }
                         }
+                    }else if(userInput == PVT){
+                        printf("Input message and receivwe is %s", inputContent);
+                        privateMess = formatPrivateMessage(inputContent);
+                        if(privateMess != NULL){
+                            generatePrivateMessage(privateMess, &newMessage);
+                            printf("Sending private message \n");
+                            free(privateMess);
+                        }else{
+                            printf("Failed to create private message \n");
+                            continue;
+                        }
                     }
                 }
             }
@@ -224,6 +238,10 @@ int main(int argc, char *argv[]){
                 printf("Failed to register because of %s \n", receivedMessage.data);
                 freeaddrinfo(servinfo);
                 close(sockfd);
+            }else if(receivedMessage.type == PVT_ACK){
+                printf("Successfully sent private message \n");
+            }else if(receivedMessage.type == PVT_NAK){
+                printf("Failed to send private message due to %s \n", receivedMessage.data);
             }
             continue;
         }else if(userInput == EXIT){

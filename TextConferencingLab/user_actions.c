@@ -107,6 +107,29 @@ int createUser(char* content, struct userInfo* user){
     return 1;
 }
 
+char *formatPrivateMessage(char* input){
+    int totalLen = strlen(input);
+    char inputString[MAX_COMMAND_LEN];
+    strcpy(inputString, input);
+    char *receiver;
+    char *message;
+    char *contentToSend = malloc(totalLen);
+
+    receiver = strtok(inputString, " ");
+    int nameLen = strlen(receiver);
+    message = inputString+nameLen+1;
+
+    printf("The receiver is %s, the message is %s", receiver, message);
+
+    strcpy(contentToSend, receiver);
+    strcat(contentToSend, ",");
+    strcat(contentToSend, message);
+
+    printf("Combined message is %s", contentToSend);
+
+    return contentToSend;
+}
+
 int getSessionID(char* content, char* sessionID){
     int inputCount = 0;
     char inputString[MAX_COMMAND_LEN];
@@ -192,6 +215,14 @@ int generateTextMessage(char* content, struct message* messageToSend){
     return 1;
 }
 
+int generatePrivateMessage(char* content, struct message* messageToSend){
+    messageToSend->type = PVT;
+    messageToSend->size = strlen(content);
+    strcpy(messageToSend->data, content);
+
+    return 1;
+}
+
 int generateQueryMessage(struct message* messageToSend){
     messageToSend->type = QUERY;
     messageToSend->size = 0;
@@ -204,10 +235,6 @@ int generateQueryMessage(struct message* messageToSend){
 int sendMessage(int sockfd, struct message* messageToSend){
     int resSend;
     char message[MAX_COMMAND_LEN];
-    printf("type is %d", messageToSend->type);
-    printf("size is %d", messageToSend->size);
-    printf("source is %s", messageToSend->source);
-    printf("data is %s", messageToSend->data);
     sprintf(message, "%d:%d:%s:%s", messageToSend->type, messageToSend->size, messageToSend->source, messageToSend->data);
     resSend = send(sockfd, message, strlen(message), 0);
     if(resSend == -1){
