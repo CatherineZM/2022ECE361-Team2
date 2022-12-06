@@ -26,8 +26,10 @@ struct userInfo{
 
 int userCommand(char* userInput);
 int tryLogIn(char *content, struct userInfo* user);
+int createUser(char *content, struct userInfo* user);
 int getSessionID(char* content, char* sessionID);
 int generateLogInMessage(struct userInfo user, struct message* messageToSend);
+int generateRegisterMessage(struct userInfo user, struct message* messageToSend);
 int generateExitMessage(struct message* messageToSend);
 int generateJoinMessage(char* sessionID, struct message* messageToSend);
 int generateLeaveSessMessage(struct message* messageToSend);
