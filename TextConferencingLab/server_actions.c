@@ -36,7 +36,7 @@ void* exclusive_service(void* argss){
 		//recv client message
 		numbytes = recv(client_sock, client_message, sizeof(client_message), 0);
 		error_check(numbytes, NONNEGATIVEONE, "recv");
-		printf("Received a client request\n");
+		printf("Received a client request at socket %d\n", client_sock);
 		//create message struct
 		struct message client_message_struct, server_message_struct;
 		memset(&client_message_struct, 0, sizeof client_message_struct);
@@ -94,7 +94,11 @@ void get_online_list() {
 	printf("==================Info List==================\n");
 	printf("Online Usres:\n");
 	for(int i=0; i<USERNO; i++) {
-		printf("%d. %s\n", i, online_users[i]);
+		printf("%d. %s", i, online_users[i]);
+		if(strcmp(online_users[i], "EMPTY")) {
+			printf(", sock %d",find_socket(online_users[i]));
+		}
+		printf("\n");
 	}
 	printf("\nSession List:\n");
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
@@ -198,6 +202,7 @@ int pvt(struct message* client_message_struct, struct message* server_message_st
 	strcpy(recv_name, token);
 	token = strtok(NULL, separate);
 	strcpy(pvt_msg, token);
+	printf("Target User = %s, Private Message = %s\n", recv_name, pvt_msg);
 
 	if(!loggedin(recv_name)) {
 		strcpy(reply, recv_name);
@@ -205,25 +210,29 @@ int pvt(struct message* client_message_struct, struct message* server_message_st
 		set_msg_struct(PVT_NAK, strlen(reply), "Server", reply, server_message_struct);
 		return OUT;
 	}
-	int client_sock = 0;
-	for(int i=0; i<MAX_DATA; i++) {
-		if(!strcmp(online_fds[i], recv_name)) {
-			client_sock = i;
-			break;
-		}
-	}
-	set_msg_struct(PVT_ACK, client_message_struct->size, client_message_struct->source, 
-	client_message_struct->data, server_message_struct);
+	int client_sock = find_socket(recv_name);
+	error_check(client_sock, NONNEGATIVEONE, "pvt");
+	printf("Find target user socket fd = %d\n", client_sock);
+	set_msg_struct(PVT_ACK, client_message_struct->size, client_message_struct->source,
+	pvt_msg, server_message_struct);
 	printf("Completed TEXT message\n");
 	char server_message[MSGBUFLEN];
     memset(server_message, '\0', sizeof(server_message));
 	make_message(server_message, server_message_struct);
-
-	printf("target sock = %d\n", client_sock);
 	error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
 	printf("Private message sent\n");
 
 	return true;
+}
+
+int find_socket(char user[MAX_NAME]) {
+	int fd = -1;
+	for(int i=0; i<MAX_DATA; i++) {
+		if(!strcmp(online_fds[i], user)) {
+			return i;
+		}
+	}
+	return fd;
 }
 
 int regi(struct message* client_message_struct, struct message* server_message_struct) {

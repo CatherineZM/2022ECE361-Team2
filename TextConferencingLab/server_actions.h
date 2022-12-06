@@ -69,5 +69,6 @@ void remove_fd(int sid, int client_sock);
 void insert_fd(int sid, int client_sock);
 int regi(struct message* client_message_struct, struct message* server_message_struct);
 int pvt(struct message* client_message_struct, struct message* server_message_struct);
+int find_socket(char user[MAX_NAME]);
 
 #endif
