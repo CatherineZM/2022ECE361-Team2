@@ -376,11 +376,20 @@ void query(struct message* client_message_struct, struct message* server_message
 //find valid session
 int new_sess(struct message* client_message_struct, struct message* server_message_struct) {
 	printf("Creating a new session...\n");
-	char source[MAX_NAME]; char reply[MSGBUFLEN];
+	char source[MAX_NAME]; char reply[MSGBUFLEN]; char session[MAX_DATA];
 	strcpy(source, client_message_struct->source);
+	strcpy(session, client_message_struct->data);
 
 	if(in_group(source)) {
-		strcpy(reply, "[ERROR] user already in a session");
+		strcpy(reply, session);
+		strcat(reply, ", [ERROR] user already in a session");
+		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
+		return CONFUSE;
+	}
+
+	if(session_existed(session)) {
+		strcpy(reply, session);
+		strcat(reply, ", [ERROR] session name existed");
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
 		return CONFUSE;
 	}
@@ -564,6 +573,15 @@ bool loggedin(char id[MAX_NAME]) {
 bool in_group(char id[MAX_NAME]) {
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
 		if(!strcmp(id, session_members[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool session_existed(char session[MAX_DATA]) {
+	for(int i=0; i<SESSIONNO; i++) {
+		if(!strcmp(session, session_names[i])) {
 			return true;
 		}
 	}
