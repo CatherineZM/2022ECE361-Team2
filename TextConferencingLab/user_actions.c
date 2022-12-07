@@ -13,6 +13,49 @@
 #include "user_actions.h"
 
 #define MAX_COMMAND_LEN 1000
+#define MAXBUFLEN 1000
+
+void* listenServer(void* args){
+    struct thread_args* args_info = (struct thread_args*) args;
+    int sockfd = args_info->sockfd;
+
+    char serverReply[MAXBUFLEN];
+    struct message receivedMessage;
+
+    while(loggedIn){
+        printf("ready to receive message \n");
+        if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
+            fprintf(stderr, "client listen: message received is invalid\n");
+            continue;
+        }
+        if(!readMessage(serverReply, &receivedMessage)){
+            printf("Invalid message received from the server.\n");
+            continue;
+        }
+        if(receivedMessage.type == JN_ACK){
+            printf("[Notification] Successfully joined session %s\n", receivedMessage.data);
+            joinedSess = 1;
+            finishJoin = 1;
+        }else if(receivedMessage.type == JN_NAK){
+            printf("[Notification] Failed to join session %s \n", receivedMessage.data);
+            finishJoin = 1;
+        }else if(receivedMessage.type == NS_ACK){
+            printf("[Notification] Successfully created session\n");
+            joinedSess = 1;
+            finishJoin = 1;
+        }else if(receivedMessage.type == PVT_ACK){
+            printf("[Notification] Successfully sent private message \n");
+        }else if(receivedMessage.type == PVT_NAK){
+            printf("[Notification] Failed to send private message due to %s \n", receivedMessage.data);
+        }else if(receivedMessage.type == QU_ACK){
+            printf("[Notification] List users and sessions: %s\n", receivedMessage.data);
+        }else if(receivedMessage.type == PVT){
+            printf("[Notification] Private message from %s : %s\n", receivedMessage.source, receivedMessage.data);
+        }else if(receivedMessage.type == MESSAGE){
+            printf("[Notification] Received message %s\n", receivedMessage.data);
+        }
+    }
+}
 
 int userCommand(char* userInput){
     
@@ -47,7 +90,6 @@ int tryLogIn(char* content, struct userInfo* user){
 
     component = strtok(inputString, " ");
     while( component != NULL){
-        printf("compo = %s\n", component);
         if(inputCount == 0){
         	strcpy(user->username, component);
         }else if(inputCount == 1){
@@ -62,8 +104,6 @@ int tryLogIn(char* content, struct userInfo* user){
         inputCount++;
         component = strtok( NULL, " ");
     }
-    
-    printf("userinfo: %s\n", user->ipAddr);
 
     if(inputCount != 4){
         printf("tryLogIn: invalid number of arguments for login information\n");
@@ -175,59 +215,65 @@ int generateRegisterMessage(struct userInfo user, struct message* messageToSend)
     return 1;
 }
 
-int generateExitMessage(struct message* messageToSend){
+int generateExitMessage(struct userInfo user, struct message* messageToSend){
     messageToSend->type = EXIT;
     messageToSend->size = 0;
     strcpy(messageToSend->data, "");
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
 
-int generateJoinMessage(char* sessionID, struct message* messageToSend){
+int generateJoinMessage(struct userInfo user, char* sessionID, struct message* messageToSend){
     messageToSend->type = JOIN;
     messageToSend->size = strlen(sessionID);
     strcpy(messageToSend->data, sessionID);
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
 
-int generateLeaveSessMessage(struct message* messageToSend){
+int generateLeaveSessMessage(struct userInfo user, struct message* messageToSend){
     messageToSend->type = LEAVE_SESS;
     messageToSend->size = 0;
     strcpy(messageToSend->data, "");
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
 
-int generateNewSessMessage(char* sessionID, struct message* messageToSend){
+int generateNewSessMessage(struct userInfo user, char* sessionID, struct message* messageToSend){
     messageToSend->type = NEW_SESS;
     messageToSend->size = strlen(sessionID);
     strcpy(messageToSend->data, sessionID);
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
 
-int generateTextMessage(char* content, struct message* messageToSend){
+int generateTextMessage(struct userInfo user, char* content, struct message* messageToSend){
     messageToSend->type = MESSAGE;
     messageToSend->size = strlen(content);
     strcpy(messageToSend->data, content);
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
 
-int generatePrivateMessage(char* content, struct message* messageToSend){
+int generatePrivateMessage(struct userInfo user, char* content, struct message* messageToSend){
     messageToSend->type = PVT;
     messageToSend->size = strlen(content);
     strcpy(messageToSend->data, content);
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
 
-int generateQueryMessage(struct message* messageToSend){
+int generateQueryMessage(struct userInfo user, struct message* messageToSend){
     messageToSend->type = QUERY;
     messageToSend->size = 0;
     strcpy(messageToSend->data, "");
-    strcpy(messageToSend->source, "");
+    strcpy(messageToSend->source, user.username);
 
     return 1;
 }
@@ -259,6 +305,7 @@ int readMessage(char* serverReply, struct message* receivedMessage){
 
     component = strtok(inputString, ":");
     while( component != NULL){
+        printf("component %d is %s", inputCount, component);
         if(inputCount == 0){
         	receivedMessage->type = atoi(component);
         }else if(inputCount == 1){
@@ -275,11 +322,9 @@ int readMessage(char* serverReply, struct message* receivedMessage){
         inputCount++;
         component = strtok( NULL, ":");
     }
-    
-    printf("message received: %s\n", receivedMessage->data);
 
     if(inputCount != 4){
-        printf("readMessage: invalid number of arguments for login information\n");
+        printf("readMessage: invalid number of arguments\n");
         return 0;
     }
 

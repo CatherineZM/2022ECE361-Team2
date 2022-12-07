@@ -17,11 +17,20 @@
 
 #define MAX_COMMAND_LEN 1000
 
+// global variables
+extern int loggedIn;
+extern int joinedSess;
+extern int finishJoin;
+
 struct userInfo{
     unsigned char username[MAX_NAME];
     unsigned char password[MAX_NAME];
     unsigned char ipAddr[MAX_NAME];
     unsigned char portNum[MAX_DATA];
+};
+
+struct thread_args{
+    int sockfd;
 };
 
 int userCommand(char* userInput);
@@ -31,15 +40,16 @@ char *formatPrivateMessage(char* input);
 int getSessionID(char* content, char* sessionID);
 int generateLogInMessage(struct userInfo user, struct message* messageToSend);
 int generateRegisterMessage(struct userInfo user, struct message* messageToSend);
-int generateExitMessage(struct message* messageToSend);
-int generateJoinMessage(char* sessionID, struct message* messageToSend);
-int generateLeaveSessMessage(struct message* messageToSend);
-int generateNewSessMessage(char* sessionID, struct message* messageToSend);
-int generateTextMessage(char* content, struct message* messageToSend);
-int generatePrivateMessage(char* content, struct message* messageToSend);
-int generateQueryMessage(struct message* messageToSend);
+int generateExitMessage(struct userInfo user, struct message* messageToSend);
+int generateJoinMessage(struct userInfo user, char* sessionID, struct message* messageToSend);
+int generateLeaveSessMessage(struct userInfo user, struct message* messageToSend);
+int generateNewSessMessage(struct userInfo user, char* sessionID, struct message* messageToSend);
+int generateTextMessage(struct userInfo user, char* content, struct message* messageToSend);
+int generatePrivateMessage(struct userInfo user, char* content, struct message* messageToSend);
+int generateQueryMessage(struct userInfo user, struct message* messageToSend);
 int sendMessage(int sockfd, struct message* messageToSend);
 int readMessage(char* serverReply, struct message* receivedMessage);
 void listUserAndSess(struct message receivedMessage);
+void* listenServer(void* args);
 
 #endif
