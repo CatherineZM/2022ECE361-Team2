@@ -602,6 +602,9 @@ void sort_message(char client_message[MSGBUFLEN], struct message* client_message
      	token = strtok(NULL, separate);
    	}
 	strncpy(client_message_struct->data, client_message + len + 3, client_message_struct->size);
+	if(!strcmp(client_message_struct->source, "")) {
+		printf("Client's packet missing source component\n");
+	}
 	printf("Message sorted\n");
 	printf("type = %d, size = %d, source = %s, data = %s\n", client_message_struct->type, 
 	client_message_struct->size, client_message_struct->source, client_message_struct->data);

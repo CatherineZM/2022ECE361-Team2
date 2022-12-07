@@ -18,7 +18,7 @@
 //define constant
 //change and test
 #define USERNO 3
-#define SESSIONNO 5
+#define SESSIONNO 2
 //constant size
 #define MSGBUFLEN 2000
 #define BACKLOG 5
