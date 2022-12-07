@@ -47,6 +47,7 @@ void* exclusive_service(void* argss){
 		//read client's commands and Yes Sir!
 		printf("Detecting the action...\n");
 		int next_step = action_detect(&client_message_struct, &server_message_struct, client_sock);
+		printf("Action detection finished\n");
 		//finish rest tasks if any
 		if(next_step == CONFUSE) {
 			printf("Invalid client command, ignored it\n\n" );
@@ -55,7 +56,7 @@ void* exclusive_service(void* argss){
 		if(next_step) {
 			if(next_step == OUT) { //user exit
 				error_check(close(client_sock), ZERO, "close");
-				printf("\n");
+				printf("Closed inactive client socket %d\n\n", client_sock);
 				break;
 			}
 			if(next_step == FD) { //record username to socket
@@ -66,9 +67,8 @@ void* exclusive_service(void* argss){
 			error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
 			printf("Server sent response\n");
 			if(next_step == WARNINGOUT) { //sent warning and close socket
-
 				error_check(close(client_sock), ZERO, "close");
-				printf("\n");
+				printf("Closed inactive client socket %d\n\n", client_sock);
 				break;
 			}
 		}
@@ -98,7 +98,7 @@ void initialize() {
 void get_online_list() {
 	printf("Loading current server sessions:\n");
 	printf("==================Info List==================\n");
-	printf("Online Usres:\n");
+	printf("Online Usres (max %d):\n", USERNO);
 	for(int i=0; i<USERNO; i++) {
 		printf("%d. %s", i, online_users[i]);
 		if(strcmp(online_users[i], "EMPTY")) {
@@ -106,7 +106,7 @@ void get_online_list() {
 		}
 		printf("\n");
 	}
-	printf("\nSession List:\n");
+	printf("\nSession List (max %d):\n", SESSIONNO);
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
 		if(i%USERNO == 0) {
 			printf("==============================\n");
@@ -192,7 +192,6 @@ int action_detect(struct message* client_message_struct, struct message* server_
       	default:
 			return CONFUSE;
 	}
-	printf("Action detection finished\n");
 	return false;
 }
 
@@ -219,14 +218,15 @@ int pvt(struct message* client_message_struct, struct message* server_message_st
 	int client_sock = find_socket(recv_name);
 	error_check(client_sock, NONNEGATIVEONE, "pvt");
 	printf("Find target user socket fd = %d\n", client_sock);
-	set_msg_struct(PVT, client_message_struct->size, client_message_struct->source,
+	set_msg_struct(PVT, strlen(pvt_msg), client_message_struct->source,
 	pvt_msg, server_message_struct);
-	printf("Completed TEXT message\n");
 	char server_message[MSGBUFLEN];
     memset(server_message, '\0', sizeof(server_message));
 	make_message(server_message, server_message_struct);
 	error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
-	printf("Private message sent\n");
+	printf("Private message sent to %s\n", recv_name);
+	set_msg_struct(PVT_ACK, client_message_struct->size, "Server",
+	pvt_msg, server_message_struct);
 
 	return true;
 }
@@ -323,16 +323,15 @@ int message(struct message* client_message_struct, struct message* server_messag
 	}
 	set_msg_struct(MESSAGE, client_message_struct->size, client_message_struct->source, 
 	client_message_struct->data, server_message_struct);
-	printf("Completed TEXT message\n");
 	char server_message[MSGBUFLEN];
     memset(server_message, '\0', sizeof(server_message));
 	make_message(server_message, server_message_struct);
 	for(int i=0; i<USERNO; i++) {
 		client_sock = session_fds[sid+i];
 		if(client_sock != -1 && strcmp(online_fds[client_sock], source)) {
-			printf("client sock = %d\n", client_sock);
+			printf("Sending to user %s with sock fd %d\n", online_fds[client_sock], client_sock);
 			error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
-			printf("Sync chating message\n");
+			printf("Sync chating message completed\n");
 		}
 	}
 	return false;
@@ -347,6 +346,7 @@ void query(struct message* client_message_struct, struct message* server_message
 	char list[MSGBUFLEN];
 	char no_group_users[MSGBUFLEN];
 	char reply[MSGBUFLEN];
+	strcpy(list, "");
 	strcpy(reply, "List Info = ");
 	for(int i=0; i<SESSIONNO; i++) { // /session1-user1-user2/session2-user3/NoGroup-user4
 		if(strcmp(session_names[i], "EMPTY")) {
@@ -461,8 +461,9 @@ int update_list(struct message* client_message_struct, struct message* server_me
 			if(i%USERNO==USERNO-1 && leave && noman) { //delete session if last user leave
 				sid = i/USERNO;
 				session_list[sid] = 0;
+				printf("Delete session \"%s\" since last user \"%s\" leaved\n", session_names[sid], source);
 				strcpy(session_names[sid], "EMPTY");
-				printf("Delete session \"%s\" since last user leaved\n", source);
+				leave = false;
 			}
 		}
 		return fd;
