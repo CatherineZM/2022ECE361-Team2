@@ -77,9 +77,9 @@ int main(int argc, char *argv[]){
                 int commLength = strlen(command);
                 inputContent = input+commLength+1;
                 if(userInput == LOGIN){
-                    printf("Attempt to log in\n");
+                    // printf("Attempt to log in\n");
                     if(tryLogIn(inputContent, &loginInfo)){
-                        printf("info format correct\n");
+                        // printf("info format correct\n");
                         // Get address information
                         rv = getaddrinfo(loginInfo.ipAddr, loginInfo.portNum, &hints, &servinfo);
                         if(rv != 0) {
@@ -108,9 +108,9 @@ int main(int argc, char *argv[]){
                         continue;
                     }
                 }else if(userInput == REG){
-                    printf("Creating a new user\n");
+                    // printf("Creating a new user\n");
                     if(createUser(inputContent, &loginInfo)){
-                        printf("info format correct\n");
+                        // printf("info format correct\n");
                         // Get address information
                         rv = getaddrinfo(loginInfo.ipAddr, loginInfo.portNum, &hints, &servinfo);
                         if(rv != 0) {
@@ -179,22 +179,24 @@ int main(int argc, char *argv[]){
             pthread_create(&(listenTo), NULL, listenServer, (void*)args);
             while(!joinedSess){
                 //receive message
-                printf("Enter your command: \n");
+                printf("Logged in no session Enter your command: \n");
                 scanf("%[^\n]%*c", input);
                 strcpy(commandTmp, input);
                 command = strtok(commandTmp, " ");
                 userInput = userCommand(command);
                 if((userInput == LOGIN) || (userInput == REG)){
                     printf("You have already logged in. Try a different command. \n");
+                    continue;
                 }else if((userInput == MESSAGE) || (userInput == LEAVE_SESS)){
                     printf("You are not in a session\n");
+                    continue;
                 }else if((userInput == JOIN) || (userInput == NEW_SESS) || (userInput == PVT)){
                     int commLength = strlen(command);
                     inputContent = input+commLength+1;
                     if(userInput == JOIN){
                         if(getSessionID(inputContent, sessionID)){
                             generateJoinMessage(loginInfo, inputContent, &newMessage);
-                            printf("Joining new session %s\n", inputContent);
+                            // printf("Joining new session %s\n", inputContent);
                         }else{
                             printf("Invalid session ID \n");
                             continue;
@@ -202,17 +204,17 @@ int main(int argc, char *argv[]){
                     }else if(userInput == NEW_SESS){
                         if(getSessionID(inputContent, sessionID)){
                             generateNewSessMessage(loginInfo, inputContent, &newMessage);
-                            printf("Opening new session %s\n", inputContent);
+                            // printf("Opening new session %s\n", inputContent);
                         }else{
                             printf("Invalid session ID \n");
                             continue;
                         }
                     }else if(userInput == PVT){
-                        printf("Input message and receiver is %s", inputContent);
+                        // printf("Input message and receiver is %s", inputContent);
                         privateMess = formatPrivateMessage(inputContent);
                         if(privateMess != NULL){
                             generatePrivateMessage(loginInfo, privateMess, &newMessage);
-                            printf("Sending private message \n");
+                            // printf("Sending private message \n");
                             free(privateMess);
                         }else{
                             printf("Failed to create private message \n");
@@ -220,6 +222,7 @@ int main(int argc, char *argv[]){
                         }
                     }
                 }else if(userInput == EXIT){
+                    pthread_cancel(listenTo);
                     generateExitMessage(loginInfo, &newMessage);
                     if(!sendMessage(sockfd, &newMessage)){
                         printf("EXIT: Failed to send message.\n");
@@ -229,12 +232,12 @@ int main(int argc, char *argv[]){
                     close(sockfd);
                     loggedIn = 0;
                     printf("Exiting from the server.\n");
-                    pthread_cancel(listenTo);
                     break;
                 }else if(userInput == QUERY){
                     generateQueryMessage(loginInfo, &newMessage);
-                    printf("Generated message \n");
+                    // printf("Generated message \n");
                 }else if(userInput == QUIT){
+                    pthread_cancel(listenTo);
                     generateExitMessage(loginInfo, &newMessage);
                     if(!sendMessage(sockfd, &newMessage)){
                         printf("QUIT: Failed to send message.\n");
@@ -245,7 +248,6 @@ int main(int argc, char *argv[]){
                     loggedIn = 0;
                     joinedSess = 0;
                     printf("Terminating the program\n");
-                    pthread_cancel(listenTo);
                     return 1;
                 }
                 
@@ -263,7 +265,7 @@ int main(int argc, char *argv[]){
                 }
             }
             while(joinedSess){
-                printf("Enter your command: \n");
+                printf("Logged in yes session Enter your command: \n");
                 scanf("%[^\n]%*c", input);
                 strcpy(commandTmp, input);
                 command = strtok(commandTmp, " ");
@@ -271,16 +273,18 @@ int main(int argc, char *argv[]){
                 
                 if((userInput == LOGIN) || (userInput == REG)){
                     printf("You have already logged in. Try a different command. \n");
+                    continue;
                 }else if((userInput == JOIN) || (userInput == NEW_SESS)){
                     printf("You are already in a session. Try a different command. \n");
+                    continue;
                 }else if((userInput == MESSAGE) || (userInput == LEAVE_SESS)){
                     if(userInput == LEAVE_SESS){
                         generateLeaveSessMessage(loginInfo, &newMessage);
-                        printf("Leaving the session\n");
+                        // printf("Leaving the session\n");
                         joinedSess = 0;
                     }else if(userInput == MESSAGE){
                         generateTextMessage(loginInfo, input, &newMessage);
-                        printf("Sending message:%s in the session\n", input);
+                        // printf("Sending message:%s in the session\n", input);
                     }
                 }else if(userInput == PVT){
                     int commLength = strlen(command);
@@ -296,13 +300,12 @@ int main(int argc, char *argv[]){
                         continue;
                     }
                 }else if(userInput == EXIT){
+                    pthread_cancel(listenTo);
                     generateExitMessage(loginInfo, &newMessage);
                     if(!sendMessage(sockfd, &newMessage)){
                         printf("EXIT: Failed to send message.\n");
                         continue;
                     }
-                    free(sessionID);
-                    freeaddrinfo(servinfo);
                     close(sockfd);
                     loggedIn = 0;
                     joinedSess = 0;
@@ -311,20 +314,18 @@ int main(int argc, char *argv[]){
                     break;
                 }else if(userInput == QUERY){
                     generateQueryMessage(loginInfo, &newMessage);
-                    printf("Generated message");
+                    //printf("Generated message");
                 }else if(userInput == QUIT){
+                    pthread_cancel(listenTo);
                     generateExitMessage(loginInfo, &newMessage);
                     if(!sendMessage(sockfd, &newMessage)){
                         printf("QUIT: Failed to send message.\n");
                         continue;
                     }
-                    free(sessionID);
-                    freeaddrinfo(servinfo);
                     close(sockfd);
                     loggedIn = 0;
                     joinedSess = 0;
                     printf("Terminating the program\n");
-                    pthread_cancel(listenTo);
                     return 1;
                 }
                 

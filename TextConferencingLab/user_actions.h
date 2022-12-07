@@ -49,7 +49,7 @@ int generatePrivateMessage(struct userInfo user, char* content, struct message* 
 int generateQueryMessage(struct userInfo user, struct message* messageToSend);
 int sendMessage(int sockfd, struct message* messageToSend);
 int readMessage(char* serverReply, struct message* receivedMessage);
-void listUserAndSess(struct message receivedMessage);
+void listUserAndSess(struct message* receivedMessage);
 void* listenServer(void* args);
 
 #endif

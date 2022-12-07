@@ -9,6 +9,8 @@
 #include <time.h>
 #include <math.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+
 #include "message.h"
 #include "user_actions.h"
 
@@ -23,12 +25,13 @@ void* listenServer(void* args){
     struct message receivedMessage;
 
     while(loggedIn){
-        printf("ready to receive message \n");
+        memset(serverReply, '\0', sizeof(serverReply));
+
         if(recv(sockfd, serverReply, MAXBUFLEN-1, 0) < 0){
             fprintf(stderr, "client listen: message received is invalid\n");
             continue;
         }
-        if(!readMessage(serverReply, &receivedMessage)){
+        if(!readMessage(serverReply, &receivedMessage) && loggedIn){
             printf("Invalid message received from the server.\n");
             continue;
         }
@@ -48,13 +51,15 @@ void* listenServer(void* args){
         }else if(receivedMessage.type == PVT_NAK){
             printf("[Notification] Failed to send private message due to %s \n", receivedMessage.data);
         }else if(receivedMessage.type == QU_ACK){
-            printf("[Notification] List users and sessions: %s\n", receivedMessage.data);
+            printf("[Notification] List users and sessions:\n");
+            listUserAndSess(&receivedMessage);
         }else if(receivedMessage.type == PVT){
             printf("[Notification] Private message from %s : %s\n", receivedMessage.source, receivedMessage.data);
         }else if(receivedMessage.type == MESSAGE){
             printf("[Notification] Received message %s\n", receivedMessage.data);
         }
     }
+    pthread_exit(NULL);
 }
 
 int userCommand(char* userInput){
@@ -121,7 +126,7 @@ int createUser(char* content, struct userInfo* user){
 
     component = strtok(inputString, " ");
     while( component != NULL){
-        printf("compo = %s\n", component);
+        // printf("compo = %s\n", component);
         if(inputCount == 0){
         	strcpy(user->username, component);
         }else if(inputCount == 1){
@@ -137,7 +142,7 @@ int createUser(char* content, struct userInfo* user){
         component = strtok( NULL, " ");
     }
     
-    printf("userinfo: %s\n", user->ipAddr);
+    // printf("userinfo: %s\n", user->ipAddr);
 
     if(inputCount != 4){
         printf("createUser: invalid number of arguments for new user information\n");
@@ -159,13 +164,9 @@ char *formatPrivateMessage(char* input){
     int nameLen = strlen(receiver);
     message = inputString+nameLen+1;
 
-    printf("The receiver is %s, the message is %s", receiver, message);
-
     strcpy(contentToSend, receiver);
     strcat(contentToSend, ",");
     strcat(contentToSend, message);
-
-    printf("Combined message is %s", contentToSend);
 
     return contentToSend;
 }
@@ -180,7 +181,7 @@ int getSessionID(char* content, char* sessionID){
     component = strtok(inputString, " ");
 
     while( component != NULL){
-        printf("%s\n", component);
+       // printf("%s\n", component);
         tmpID = component;
 
         inputCount++;
@@ -287,7 +288,7 @@ int sendMessage(int sockfd, struct message* messageToSend){
         fprintf(stderr, "client: error when sending message due to %s \n", errno);
         return 0; 
     }
-    printf("Message sent %s\n", message);
+    // printf("Message sent %s\n", message);
     return 1;
 }
 
@@ -302,6 +303,8 @@ int readMessage(char* serverReply, struct message* receivedMessage){
     char *component;
     int messageLen;
     char message[MAX_COMMAND_LEN];
+
+    memset(message, '\0', sizeof(message));
 
     component = strtok(inputString, ":");
     while( component != NULL){
@@ -323,29 +326,44 @@ int readMessage(char* serverReply, struct message* receivedMessage){
     }
 
     if(inputCount != 4){
-        printf("readMessage: invalid number of arguments\n");
         return 0;
     }
 
     return 1;
 }
 
-void listUserAndSess(struct message receivedMessage){
-	printf("List users and sessions: \n");
-	printf("Session - User | User \n");
-	printf("=============== \n");
-	char inputString[MAX_COMMAND_LEN];
-	strcpy(inputString, receivedMessage.data);
-	
-	char *pair, *session, *user;
-	pair = strtok(inputString, ",");
-	while(pair != NULL){
-		session = strtok(pair, "-");
-		printf("The session is: %s", session);
-		user = pair+strlen(session)+1;
-		pair = strtok(NULL, ",");
-		printf("%s | %s \n", session, user);
+void listUserAndSess(struct message* receivedMessage){
+	printf("Session: User\n");
+	printf("=============\n");
+	char inputString[MAX_DATA];
+	strcpy(inputString, receivedMessage->data);
+
+    char *sessions[SESSIONNO];
+    char *component;
+    char *detail;
+    char tmp[MAX_COMMAND_LEN];
+    component = strtok(inputString, "/");
+    component = strtok(NULL, "/");
+    int i = 0;
+	while(component != NULL){
+        sessions[i] = component;
+        i++;
+        component = strtok(NULL, "/");
 	}
-	
-	return;
+    for(int j=0; j<i; j++){
+        strcpy(tmp, sessions[j]);
+        detail = strtok(tmp, "-");
+        if(strcmp(detail, "NoGroup") == 0){
+            printf("Not In Session: ");
+        }else{
+            printf("%s: ", detail);
+        }
+        detail = strtok(NULL, "-");
+        while(detail != NULL){
+            printf("%s ", detail);
+            detail = strtok(NULL, "-");
+        }
+        printf("\n");
+    }
+    printf("\nEnter your command: \n");
 }

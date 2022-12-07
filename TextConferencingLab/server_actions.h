@@ -15,24 +15,6 @@
 #include <arpa/inet.h>
 #include "message.h"
 
-//define constant
-//change and test
-#define USERNO 3
-#define SESSIONNO 2
-//constant size
-#define MSGBUFLEN 2000
-#define BACKLOG 5
-//help setting errorno
-#define NONZERO 3
-#define ZERO 4
-#define NONNEGATIVE 5
-#define NONNEGATIVEONE 6
-//holding a number
-#define OUT 2 //==EXIT
-#define CONFUSE -1
-#define FD 3 //update fd
-#define WARNINGOUT 4 //sent warning and OUT
-
 
 //global info
 extern char online_users[USERNO][MAX_NAME];
