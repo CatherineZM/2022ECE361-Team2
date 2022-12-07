@@ -305,7 +305,6 @@ int readMessage(char* serverReply, struct message* receivedMessage){
 
     component = strtok(inputString, ":");
     while( component != NULL){
-        printf("component %d is %s", inputCount, component);
         if(inputCount == 0){
         	receivedMessage->type = atoi(component);
         }else if(inputCount == 1){
