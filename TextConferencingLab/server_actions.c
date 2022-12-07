@@ -213,7 +213,7 @@ int pvt(struct message* client_message_struct, struct message* server_message_st
 	int client_sock = find_socket(recv_name);
 	error_check(client_sock, NONNEGATIVEONE, "pvt");
 	printf("Find target user socket fd = %d\n", client_sock);
-	set_msg_struct(PVT_ACK, client_message_struct->size, client_message_struct->source,
+	set_msg_struct(PVT, client_message_struct->size, client_message_struct->source,
 	pvt_msg, server_message_struct);
 	printf("Completed TEXT message\n");
 	char server_message[MSGBUFLEN];
@@ -323,7 +323,7 @@ int message(struct message* client_message_struct, struct message* server_messag
 	make_message(server_message, server_message_struct);
 	for(int i=0; i<USERNO; i++) {
 		client_sock = session_fds[sid+i];
-		if(client_sock != -1) {
+		if(client_sock != -1 && strcmp(online_fds[client_sock], source)) {
 			printf("client sock = %d\n", client_sock);
 			error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
 			printf("Sync chating message\n");
