@@ -31,6 +31,7 @@
 #define OUT 2 //==EXIT
 #define CONFUSE -1
 #define FD 3 //update fd
+#define WARNINGOUT 4 //sent warning and OUT
 
 
 //global info

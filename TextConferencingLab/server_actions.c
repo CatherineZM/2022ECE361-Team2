@@ -53,18 +53,24 @@ void* exclusive_service(void* argss){
 			continue;
 		}
 		if(next_step) {
-			if(next_step == OUT) {
+			if(next_step == OUT) { //user exit
 				error_check(close(client_sock), ZERO, "close");
 				printf("\n");
 				break;
 			}
-			if(next_step == FD) {
+			if(next_step == FD) { //record username to socket
 				strcpy(online_fds[client_sock], client_message_struct.source);
 			}
 			printf("Making response message...\n");
 			make_message(server_message, &server_message_struct);
 			error_check(send(client_sock, server_message, strlen(server_message), 0), NONNEGATIVEONE, "send");
 			printf("Server sent response\n");
+			if(next_step == WARNINGOUT) { //sent warning and close socket
+
+				error_check(close(client_sock), ZERO, "close");
+				printf("\n");
+				break;
+			}
 		}
 		printf("\n");
 	}
@@ -131,7 +137,7 @@ int action_detect(struct message* client_message_struct, struct message* server_
 				strcpy(reply, "[ERROR] user already logged in");
 				set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
 				printf("User \"%s\" already logged in\n", client_message_struct->source);
-				return OUT;
+				return WARNINGOUT;
 			}
 			ret = login(client_message_struct, server_message_struct);
 			return ret;
@@ -146,10 +152,13 @@ int action_detect(struct message* client_message_struct, struct message* server_
 		case JOIN:
 			printf("JOIN request detected\n");
 			sid = join(client_message_struct, server_message_struct);
-			if(sid != CONFUSE) {
+			if(sid != WARNINGOUT) {
 				insert_fd(sid, client_sock);
+				return true;
 			}
-			return true;
+			else {
+				return WARNINGOUT;
+			}
 		case LEAVE_SESS:
 			printf("LEAVE_SESS request detected\n");
 			sid = update_list(client_message_struct, server_message_struct, 0);
@@ -166,11 +175,8 @@ int action_detect(struct message* client_message_struct, struct message* server_
 			return true;
 		case MESSAGE:
 			printf("MESSAGE request detected\n");
-			int check = message(client_message_struct, server_message_struct);
-			if(check == CONFUSE) {
-				return true;
-			}
-			break;
+			ret = message(client_message_struct, server_message_struct);
+			return ret;
 		case QUERY:
 			printf("QUERY request detected\n");
 			query(client_message_struct, server_message_struct);
@@ -208,7 +214,7 @@ int pvt(struct message* client_message_struct, struct message* server_message_st
 		strcpy(reply, recv_name);
 		strcat(reply, ", [ERROR] can not find target user");
 		set_msg_struct(PVT_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return OUT;
+		return true;
 	}
 	int client_sock = find_socket(recv_name);
 	error_check(client_sock, NONNEGATIVEONE, "pvt");
@@ -253,7 +259,7 @@ int regi(struct message* client_message_struct, struct message* server_message_s
 			strcpy(buff, id);
 			strcat(buff, ", [ERROR] username existed");
 			set_msg_struct(REG_NAK, strlen(buff), "Server", buff, server_message_struct);
-			return OUT;
+			return WARNINGOUT;
 		}
 	}
 
@@ -306,7 +312,7 @@ int message(struct message* client_message_struct, struct message* server_messag
 	if(!in_group(source)) {
 		strcpy(reply, "[ERROR] user should join a session first");
 		set_msg_struct(MESSAGE, strlen(reply), "Server", reply, server_message_struct);
-		return CONFUSE;
+		return true;
 	}
 
 	for(int i=0; i<SESSIONNO*USERNO; i++) {
@@ -329,7 +335,7 @@ int message(struct message* client_message_struct, struct message* server_messag
 			printf("Sync chating message\n");
 		}
 	}
-	return true;
+	return false;
 }
 
 //get active info
@@ -428,7 +434,7 @@ int new_sess(struct message* client_message_struct, struct message* server_messa
 //exit and leave function
 int update_list(struct message* client_message_struct, struct message* server_message_struct, int out) {
 	printf("Updating list info\n");
-	char source[MAX_DATA]; int sid; int fd; bool noman = true;
+	char source[MAX_DATA]; int sid; int fd; bool noman = true; bool leave = false;
 	strcpy(source, client_message_struct->source);
 
 	if(out) {
@@ -447,11 +453,12 @@ int update_list(struct message* client_message_struct, struct message* server_me
 			if(!strcmp(source, session_members[i])) {
 				strcpy(session_members[i], "EMPTY");
 				fd = i/USERNO;
+				leave = true;
 			}
 			if(strcmp(session_members[i], "EMPTY")) {
 				noman = false;
 			}
-			if(i%USERNO==USERNO-1 && noman) { //delete session if last user leave
+			if(i%USERNO==USERNO-1 && leave && noman) { //delete session if last user leave
 				sid = i/USERNO;
 				session_list[sid] = 0;
 				strcpy(session_names[sid], "EMPTY");
@@ -478,14 +485,14 @@ int join(struct message* client_message_struct, struct message* server_message_s
 		strcpy(reply, session);
 		strcat(reply, ", [ERROR] user should login first");
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return CONFUSE;
+		return WARNINGOUT;
 	}
 	//check if user not in a session yet
 	if(in_group(id)) {
 		strcpy(reply, session);
 		strcat(reply, ", [ERROR] user already in a session");
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return CONFUSE;
+		return true;
 	}
 	//check if session id existed
 	int session_id = -1;
@@ -501,7 +508,7 @@ int join(struct message* client_message_struct, struct message* server_message_s
 		strcpy(reply, session);
 		strcat(reply, ", [ERROR] session does not exist");
 		set_msg_struct(JN_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return CONFUSE;
+		return true;
 	}
 
 	for(int i=(session_id)*USERNO; i<(session_id+1)*USERNO; i++) {
@@ -543,7 +550,7 @@ int login(struct message* client_message_struct, struct message* server_message_
 	if(noman || strcmp(token, psw)) {
 		strcpy(reply, "[ERROR] user ID or password is incorrect");
 		set_msg_struct(LO_NAK, strlen(reply), "Server", reply, server_message_struct);
-		return OUT;
+		return WARNINGOUT;
 	}
 	printf("User ID and password matched successfully\n");
 	//good login
