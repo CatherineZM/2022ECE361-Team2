@@ -334,14 +334,14 @@ int message(struct message* client_message_struct, struct message* server_messag
 
 //get active info
 void query(struct message* client_message_struct, struct message* server_message_struct) {
-	printf("Loading active users and sessions...\n");
+	// printf("Loading active users and sessions...\n");
 	get_online_list();
 	char session_seperate[] = "/";
 	char user_seperate[] = "-";
 	char list[MSGBUFLEN];
 	char no_group_users[MSGBUFLEN];
 	char reply[MSGBUFLEN];
-	strcat(reply, "List Info = ");
+	strcpy(reply, "List Info = ");
 	for(int i=0; i<SESSIONNO; i++) { // /session1-user1-user2/session2-user3/NoGroup-user4
 		if(strcmp(session_names[i], "EMPTY")) {
 			strcat(list, session_seperate);
@@ -363,8 +363,10 @@ void query(struct message* client_message_struct, struct message* server_message
 			strcat(no_group_users, online_users[i]);
 		}
 	}
-	strcat(list, no_group_users);
 	strcat(reply, list);
+	if(no_group) {
+		strcat(reply, no_group_users);
+	}
 
 	printf("Completed making active info\n");
 	printf("server message \"%s\"\n", reply);
@@ -440,10 +442,11 @@ int update_list(struct message* client_message_struct, struct message* server_me
 			if(strcmp(session_members[i], "EMPTY")) {
 				noman = false;
 			}
-			if(noman) { //delete session if last user leave
+			if(i%USERNO==USERNO-1 && noman) { //delete session if last user leave
 				sid = i/USERNO;
 				session_list[sid] = 0;
 				strcpy(session_names[sid], "EMPTY");
+				printf("Delete session \"%s\" since last user leaved\n", source);
 			}
 		}
 		return fd;
